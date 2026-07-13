@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Gym Challenge",
+    "slug": "gym-challenge",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F3F4FB",
+    "splash": { "backgroundColor": "#F3F4FB" },
+    "web": { "bundler": "metro" },
+    "android": { "package": "com.tcc.gymchallenge" },
+    "ios": { "bundleIdentifier": "com.tcc.gymchallenge" }
+  }
+}

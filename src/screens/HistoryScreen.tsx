@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Image, ScrollView, StyleSheet } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, FadeSlideIn } from '../components/UI';
 import { useStore } from '../store';
 import { toKey, todayKey, Checkin } from '../gamification';
@@ -22,7 +23,7 @@ function CalendarCell({ date, trained, isToday, checkin, s }: {
             </View>
           </>
         ) : (
-          <Text style={[s.cellText, trained && { color: '#fff', fontWeight: '800' }]}>
+          <Text style={[s.cellText, trained && { color: '#fff', fontFamily: FONT.extraBold }]}>
             {parseInt(date.slice(-2))}
           </Text>
         )}
@@ -72,7 +73,10 @@ export function HistoryScreen() {
 
       <FadeSlideIn delay={140}>
         <Card>
-          <Text style={s.section}>🏆 Recordes pessoais (PRs)</Text>
+          <View style={s.sectionRow}>
+            <Ionicons name="trophy" size={16} color={T.gold} />
+            <Text style={[s.section, { marginBottom: 0 }]}>Recordes pessoais (PRs)</Text>
+          </View>
           {prs.length === 0
             ? <Text style={s.empty}>Registre treinos com carga para ver seus recordes aqui.</Text>
             : prs.slice(0, 8).map((p) => (
@@ -88,7 +92,7 @@ export function HistoryScreen() {
         <Card>
           <Text style={s.section}>Últimos treinos</Text>
           {workouts.length === 0
-            ? <Text style={s.empty}>Nenhum treino ainda. Bora começar? 💪</Text>
+            ? <Text style={s.empty}>Nenhum treino ainda. Bora começar?</Text>
             : workouts.slice(0, 10).map((w) => (
                 <View key={w.id} style={s.prRow}>
                   <View style={{ flex: 1 }}>
@@ -109,29 +113,30 @@ export function HistoryScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    title: { color: T.text, fontSize: 24, fontWeight: '800', marginTop: 8 },
-    month: { color: T.text, fontWeight: '800', fontSize: 15, marginBottom: 12, textAlign: 'center' },
+    title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
+    month: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 12, textAlign: 'center' },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
-    weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.textDim, fontSize: 11, fontWeight: '700', marginBottom: 6 },
+    weekday: { width: `${100 / 7}%`, textAlign: 'center', color: T.textDim, fontSize: 11, fontFamily: FONT.bold, marginBottom: 6 },
     cell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
     shape: {
       width: '82%', height: '82%', borderRadius: 999, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     },
     shapeTrained: { backgroundColor: T.ember },
     shapeToday: { borderWidth: 2, borderColor: T.gold },
-    cellText: { color: T.textDim, fontSize: 13 },
+    cellText: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13 },
     cellPhoto: { width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
     photoOverlay: {
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(10,12,20,0.32)', alignItems: 'center', justifyContent: 'center',
     },
-    photoText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-    section: { color: T.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
-    empty: { color: T.textDim, fontSize: 13 },
+    photoText: { color: '#fff', fontFamily: FONT.extraBold, fontSize: 13 },
+    section: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 10 },
+    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+    empty: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13 },
     prRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border },
-    prName: { color: T.text, fontWeight: '600', fontSize: 14 },
-    prWeight: { color: T.goldText, fontWeight: '800' },
-    workoutMeta: { color: T.textDim, fontSize: 11, marginTop: 2 },
-    xp: { color: T.goldText, fontWeight: '700', fontSize: 13 },
+    prName: { color: T.text, fontFamily: FONT.semiBold, fontSize: 14 },
+    prWeight: { color: T.goldText, fontFamily: FONT.extraBold },
+    workoutMeta: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11, marginTop: 2 },
+    xp: { color: T.goldText, fontFamily: FONT.bold, fontSize: 13 },
   });
 }

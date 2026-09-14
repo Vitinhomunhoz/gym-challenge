@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle, Animated, Easing, Image } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { Theme, useTheme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme, useTheme, FONT } from '../theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -22,22 +23,22 @@ function makeStyles(T: Theme) {
       shadowColor: T.gold, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 3,
     },
     btnGhost: { backgroundColor: T.surface2 },
-    btnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+    btnText: { color: '#fff', fontFamily: FONT.extraBold, fontSize: 15 },
     track: { height: 10, borderRadius: 999, backgroundColor: T.surface2, overflow: 'hidden' },
     fill: { height: 10, borderRadius: 999 },
     ringOuter: { alignItems: 'center', justifyContent: 'center' },
     ringInner: { position: 'absolute', alignItems: 'center' },
-    ringLevel: { color: T.text, fontSize: 32, fontWeight: '800', lineHeight: 36 },
-    ringLabel: { color: T.textDim, fontSize: 10, letterSpacing: 2, fontWeight: '700' },
+    ringLevel: { color: T.text, fontSize: 32, fontFamily: FONT.extraBold, lineHeight: 36 },
+    ringLabel: { color: T.textDim, fontSize: 10, letterSpacing: 2, fontFamily: FONT.bold },
     avatar: { backgroundColor: T.primary, alignItems: 'center', justifyContent: 'center' },
-    avatarText: { color: '#fff', fontWeight: '800' },
+    avatarText: { color: '#fff', fontFamily: FONT.extraBold },
     stat: { flex: 1, alignItems: 'center', gap: 6 },
     statIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    statValue: { color: T.text, fontSize: 18, fontWeight: '800' },
-    statLabel: { color: T.textDim, fontSize: 11 },
+    statValue: { color: T.text, fontSize: 18, fontFamily: FONT.extraBold },
+    statLabel: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11 },
     pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: T.surface2 },
     pillActive: { backgroundColor: T.primary },
-    pillText: { color: T.textDim, fontWeight: '700', fontSize: 12 },
+    pillText: { color: T.textDim, fontFamily: FONT.bold, fontSize: 12 },
     pillTextActive: { color: '#fff' },
   });
 }
@@ -206,8 +207,8 @@ export const Avatar = ({ name, photo, size = 44 }: { name: string; photo?: strin
   );
 };
 
-export const Stat = ({ icon, value, label, tint }: {
-  icon: string; value: string; label: string; tint?: string;
+export const Stat = ({ icon, value, label, tint, iconColor }: {
+  icon: keyof typeof Ionicons.glyphMap; value: string; label: string; tint?: string; iconColor?: string;
 }) => {
   const { theme: T } = useTheme();
   const s = useUIStyles();
@@ -215,7 +216,7 @@ export const Stat = ({ icon, value, label, tint }: {
   return (
     <View style={s.stat}>
       <View style={[s.statIcon, { backgroundColor: resolvedTint }]}>
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Ionicons name={icon} size={20} color={iconColor ?? T.primary} />
       </View>
       <Text style={s.statValue}>{value}</Text>
       <Text style={s.statLabel}>{label}</Text>

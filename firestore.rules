@@ -1,0 +1,95 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore — Gym Challenge.
+//
+// Placar do grupo (checkinsCount, workoutsCount, volumeKg, countedCheckinDates):
+// o ideal seria validar 100% no servidor (Cloud Functions), mas isso exige o plano
+// Blaze do Firebase, que ficou de fora por decisão do projeto (ver README, seção
+// "Integridade do ranking" — o código já está pronto em functions/src/index.ts pra
+// quando quiser publicar). Como mitigação sem custo, o cliente ainda escreve o
+// placar diretamente, mas cada escrita é validada aqui: só pode subir em um passo
+// pequeno (no máximo +1 check-in, +1 treino, +50.000kg de volume) e nunca diminuir.
+// Isso não impede repetição da mesma escrita, mas impede o ataque óbvio de setar um
+// valor arbitrário direto no documento.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function isProfileUpdate() {
+      return changedOnly(['name', 'photo']);
+    }
+
+    function isValidCheckinIncrement() {
+      return changedOnly(['checkinsCount', 'countedCheckinDates', 'lastCheckinPhoto', 'lastCheckinDate'])
+        && request.resource.data.checkinsCount >= resource.data.checkinsCount
+        && request.resource.data.checkinsCount <= resource.data.checkinsCount + 1
+        && request.resource.data.countedCheckinDates.size() >= resource.data.countedCheckinDates.size()
+        && request.resource.data.countedCheckinDates.size() <= resource.data.countedCheckinDates.size() + 1
+        && request.resource.data.countedCheckinDates.hasAll(resource.data.countedCheckinDates);
+    }
+
+    function isValidWorkoutIncrement() {
+      return changedOnly(['workoutsCount', 'volumeKg'])
+        && request.resource.data.workoutsCount == resource.data.workoutsCount + 1
+        && request.resource.data.volumeKg >= resource.data.volumeKg
+        && request.resource.data.volumeKg <= resource.data.volumeKg + 50000;
+    }
+
+    // ---------- Perfil privado do usuário (lista de grupos que participa) ----------
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---------- Códigos de convite ----------
+    match /inviteCodes/{code} {
+      allow read: if isSignedIn();
+      // só registra um código para um grupo do qual o próprio usuário é dono
+      allow create: if isSignedIn()
+        && get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- Grupos ----------
+    match /groups/{groupId} {
+      allow read: if isSignedIn() && isMember(groupId);
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow delete: if false;
+
+      // Membros: o cliente cria a própria entrada (com contadores zerados) e só pode
+      // atualizar depois via um dos três formatos validados acima (perfil, check-in
+      // ou treino) — nunca um valor arbitrário de placar.
+      match /members/{uid} {
+        // uid == request.auth.uid cobre o caso de quem está entrando agora (ainda
+        // não é membro, mas precisa checar/criar o próprio documento); isMember
+        // cobre a listagem completa (ranking) para quem já participa do grupo.
+        allow read: if isSignedIn() && (request.auth.uid == uid || isMember(groupId));
+        allow create: if isSignedIn() && request.auth.uid == uid
+          && request.resource.data.checkinsCount == 0
+          && request.resource.data.workoutsCount == 0
+          && request.resource.data.volumeKg == 0;
+        allow update: if isSignedIn() && request.auth.uid == uid
+          && (isProfileUpdate() || isValidCheckinIncrement() || isValidWorkoutIncrement());
+        allow delete: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      // Chat: histórico imutável, cada um só posta em nome de si mesmo
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isMember(groupId);
+        allow create: if isSignedIn() && isMember(groupId) && request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

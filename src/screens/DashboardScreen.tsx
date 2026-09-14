@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme, useTheme, FONT } from '../theme';
 import { Avatar, Card, FadeSlideIn, LevelRing, Progress, Stat } from '../components/UI';
 import { useStore } from '../store';
 import { levelTitle, xpForLevel } from '../gamification';
@@ -29,7 +30,7 @@ export function DashboardScreen() {
         <Pressable style={s.greetingRow} onPress={() => setShowProfile(true)}>
           <Avatar name={user?.name ?? '?'} photo={user?.photo} />
           <View>
-            <Text style={s.greetingHi}>Fala, 👊</Text>
+            <Text style={s.greetingHi}>Olá,</Text>
             <Text style={s.greeting}>{user?.name.split(' ')[0]}</Text>
           </View>
         </Pressable>
@@ -48,9 +49,9 @@ export function DashboardScreen() {
 
       <FadeSlideIn delay={140}>
         <Card style={{ flexDirection: 'row' }}>
-          <Stat icon="🔥" value={String(streak)} label={streak === 1 ? 'dia de streak' : 'dias de streak'} tint={T.emberSoft} />
-          <Stat icon="🏋️" value={String(workouts.length)} label="treinos" tint={T.primarySoft} />
-          <Stat icon="⚖️" value={totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}t` : `${totalVolume}kg`} label="volume total" tint={T.goldSoft} />
+          <Stat icon="flame" iconColor={T.ember} value={String(streak)} label={streak === 1 ? 'dia de streak' : 'dias de streak'} tint={T.emberSoft} />
+          <Stat icon="barbell" iconColor={T.primary} value={String(workouts.length)} label="treinos" tint={T.primarySoft} />
+          <Stat icon="stats-chart" iconColor={T.goldText} value={totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}t` : `${totalVolume}kg`} label="volume total" tint={T.goldSoft} />
         </Card>
       </FadeSlideIn>
 
@@ -72,7 +73,7 @@ export function DashboardScreen() {
               <FadeSlideIn key={b.id} delay={280 + i * 40}>
                 <View style={s.badge}>
                   <View style={[s.badgeIcon, !b.unlocked && s.badgeIconLocked]}>
-                    <Text style={{ fontSize: 24 }}>{b.icon}</Text>
+                    <Ionicons name={b.icon as keyof typeof Ionicons.glyphMap} size={24} color={b.unlocked ? T.goldText : T.textDim} />
                   </View>
                   <Text style={[s.badgeName, !b.unlocked && { opacity: 0.4 }]}>{b.name}</Text>
                 </View>
@@ -89,13 +90,13 @@ function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
     greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, marginBottom: 2 },
-    greetingHi: { color: T.textDim, fontSize: 13, fontWeight: '600' },
-    greeting: { color: T.text, fontSize: 22, fontWeight: '800' },
+    greetingHi: { color: T.textDim, fontSize: 13, fontFamily: FONT.semiBold },
+    greeting: { color: T.text, fontSize: 22, fontFamily: FONT.extraBold },
     hero: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-    levelTitle: { color: T.primary, fontWeight: '800', fontSize: 17 },
-    xpText: { color: T.textDim, fontSize: 12 },
-    sectionTitle: { color: T.text, fontWeight: '800', fontSize: 15, marginBottom: 6 },
-    sectionSub: { color: T.textDim, fontSize: 12, marginBottom: 10 },
+    levelTitle: { color: T.primary, fontFamily: FONT.extraBold, fontSize: 17 },
+    xpText: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
+    sectionTitle: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 6 },
+    sectionSub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12, marginBottom: 10 },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6 },
     badge: { width: 88, alignItems: 'center', gap: 6 },
     badgeIcon: {
@@ -103,6 +104,6 @@ function makeStyles(T: Theme) {
       alignItems: 'center', justifyContent: 'center',
     },
     badgeIconLocked: { backgroundColor: T.surface2 },
-    badgeName: { color: T.textDim, fontSize: 10, textAlign: 'center' },
+    badgeName: { color: T.textDim, fontFamily: FONT.regular, fontSize: 10, textAlign: 'center' },
   });
 }

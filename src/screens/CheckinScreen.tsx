@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Theme, useTheme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, FadeSlideIn } from '../components/UI';
 import { useStore } from '../store';
 
@@ -89,7 +90,7 @@ export function CheckinScreen() {
           ) : (
             <>
               <View style={s.placeholder}>
-                <Text style={{ fontSize: 40 }}>📸</Text>
+                <Ionicons name="camera-outline" size={40} color={T.textDim} />
                 <Text style={s.placeholderText}>Nenhuma foto ainda</Text>
               </View>
               <Btn label={busy ? 'Abrindo câmera…' : 'Tirar foto'} onPress={fromCamera} disabled={busy} />
@@ -123,21 +124,21 @@ export function CheckinScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    title: { color: T.text, fontSize: 24, fontWeight: '800', marginTop: 8 },
-    sub: { color: T.textDim, fontSize: 13, lineHeight: 19 },
-    today: { color: T.primary, fontWeight: '800', fontSize: 14 },
+    title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
+    sub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13, lineHeight: 19 },
+    today: { color: T.primary, fontFamily: FONT.extraBold, fontSize: 14 },
     placeholder: {
       width: 200, height: 200, borderRadius: 20, backgroundColor: T.surface2,
       alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderColor: T.border, borderStyle: 'dashed',
     },
-    placeholderText: { color: T.textDim, fontSize: 12 },
+    placeholderText: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
     photo: { width: 200, height: 200, borderRadius: 20 },
     doneTag: { backgroundColor: T.greenSoft, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-    doneTagText: { color: '#0F7A3D', fontWeight: '800', fontSize: 13 },
-    sectionTitle: { color: T.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
+    doneTagText: { color: '#0F7A3D', fontFamily: FONT.extraBold, fontSize: 13 },
+    sectionTitle: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 10 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     gridItem: { width: 84, alignItems: 'center', gap: 4 },
     thumb: { width: 84, height: 84, borderRadius: 14, backgroundColor: T.surface2 },
-    thumbDate: { color: T.textDim, fontSize: 10 },
+    thumbDate: { color: T.textDim, fontFamily: FONT.regular, fontSize: 10 },
   });
 }

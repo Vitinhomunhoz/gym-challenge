@@ -1,10 +1,16 @@
 # Dependencies
 node_modules/
 
+# Cloud Functions build output
+functions/lib/
+
 # Expo
 .expo/
 dist/
 web-build/
+
+# Firebase CLI local cache/deploy history
+.firebase/
 
 # Native
 *.orig.*

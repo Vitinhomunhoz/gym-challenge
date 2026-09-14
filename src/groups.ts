@@ -197,6 +197,15 @@ export async function sendMessage(groupId: string, user: AppUser, text: string):
 }
 
 // ---------- Sincronização automática (chamada pelo store ao registrar treino/check-in) ----------
+//
+// O cliente ainda escreve o placar diretamente (Cloud Functions exigem o plano Blaze
+// do Firebase, que ficou de fora por decisão do projeto). Como mitigação sem custo,
+// as firestore.rules validam cada escrita: o placar só pode subir em um passo pequeno
+// e nunca diminuir — não impede repetição, mas impede setar um valor arbitrário
+// direto no documento. Ver "Integridade do ranking" no README para o caminho mais
+// robusto (Cloud Functions já prontas em functions/src/index.ts, é só publicar).
+
+const MAX_VOLUME_PER_WORKOUT = 50_000; // mesmo teto validado em firestore.rules
 
 export async function syncCheckinToGroups(
   uid: string, groupIds: string[], dateKey: string, photoUri: string
@@ -229,6 +238,7 @@ export async function syncCheckinToGroups(
 
 export async function syncWorkoutToGroups(uid: string, groupIds: string[], volume: number, dateKey: string): Promise<void> {
   const d = requireDb();
+  const safeVolume = Math.max(0, Math.min(volume, MAX_VOLUME_PER_WORKOUT));
   await Promise.all(groupIds.map(async (groupId) => {
     try {
       const groupSnap = await getDoc(doc(d, 'groups', groupId));
@@ -236,7 +246,7 @@ export async function syncWorkoutToGroups(uid: string, groupIds: string[], volum
       if (!group || dateKey < group.periodStartKey || dateKey > group.periodEndKey) return;
 
       const memberRef = doc(d, 'groups', groupId, 'members', uid);
-      await updateDoc(memberRef, { workoutsCount: increment(1), volumeKg: increment(volume) });
+      await updateDoc(memberRef, { workoutsCount: increment(1), volumeKg: increment(safeVolume) });
     } catch {
       // idem
     }

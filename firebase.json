@@ -1,0 +1,24 @@
+{
+  "hosting": {
+    "public": "dist",
+    // "dist" é a pasta JÁ COMPILADA pelo Expo — não tem node_modules de verdade
+    // aqui dentro. Mas o empacotador nomeia os arquivos de fonte espelhando o
+    // caminho original (ex: dist/assets/node_modules/@expo/vector-icons/...),
+    // então um ignore genérico de "node_modules" acaba bloqueando as PRÓPRIAS
+    // fontes de ícone de serem publicadas (era por isso que viravam quadrados
+    // vazios — o Firebase devolvia a index.html no lugar da fonte).
+    "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.local"]
+    }
+  ]
+}

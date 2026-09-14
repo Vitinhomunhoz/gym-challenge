@@ -50,6 +50,17 @@ export const darkTheme = {
 export type Theme = typeof lightTheme;
 export type ThemeMode = 'light' | 'dark' | 'auto';
 
+// Mapeia cada peso usado nos estilos pro arquivo estático correspondente da Poppins
+// (carregada em App.tsx via useFonts) — fontWeight sozinho não troca a face de uma
+// fonte customizada, cada peso é uma fontFamily própria.
+export const FONT = {
+  regular: 'Poppins_400Regular',
+  semiBold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
+  extraBold: 'Poppins_800ExtraBold',
+  black: 'Poppins_900Black',
+};
+
 const MODE_KEY = 'gymchallenge:themeMode';
 
 type ThemeCtx = { theme: Theme; mode: ThemeMode; scheme: 'light' | 'dark'; setMode: (m: ThemeMode) => void };

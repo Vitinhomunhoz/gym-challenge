@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet, Alert, Platform,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, FadeSlideIn, SelectPill } from '../components/UI';
 import { useStore } from '../store';
 import { hasFirebase } from '../firebase';
@@ -212,7 +212,7 @@ export function GroupsScreen() {
         <FadeSlideIn duration={280}>
           <Card style={{ gap: 12 }}>
             <TextInput
-              style={[s.input, { textAlign: 'center', letterSpacing: 4, fontWeight: '800' }]}
+              style={[s.input, { textAlign: 'center', letterSpacing: 4, fontFamily: FONT.extraBold }]}
               placeholder="CÓDIGO"
               placeholderTextColor={T.textDim}
               autoCapitalize="characters"
@@ -231,19 +231,19 @@ export function GroupsScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    title: { color: T.text, fontSize: 24, fontWeight: '800', marginTop: 8 },
-    sub: { color: T.textDim, fontSize: 13, lineHeight: 19 },
-    hint: { color: T.textDim, fontSize: 13, lineHeight: 19 },
+    title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
+    sub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13, lineHeight: 19 },
+    hint: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13, lineHeight: 19 },
     loadingBox: { paddingVertical: 24, alignItems: 'center' },
     groupRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    groupName: { color: T.text, fontWeight: '800', fontSize: 15 },
-    groupMeta: { color: T.textDim, fontSize: 12 },
-    groupDays: { color: T.primary, fontWeight: '700', fontSize: 12 },
+    groupName: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15 },
+    groupMeta: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
+    groupDays: { color: T.primary, fontFamily: FONT.bold, fontSize: 12 },
     input: {
       backgroundColor: T.surface2, borderRadius: 14,
-      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15,
+      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: FONT.regular,
     },
-    label: { color: T.textDim, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
+    label: { color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1, marginBottom: 8 },
     pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   });
 }

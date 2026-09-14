@@ -1,4 +1,12 @@
 {
   "extends": "expo/tsconfig.base",
-  "compilerOptions": { "strict": true }
+  "compilerOptions": {
+    "strict": true,
+    // sobrescreve o node10 herdado do expo/tsconfig.base (deprecado no TS 7)
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  // functions/ é um projeto Node separado, com seu próprio tsconfig e node_modules
+  // (Cloud Functions, fora do bundle Expo/React Native)
+  "exclude": ["functions"]
 }

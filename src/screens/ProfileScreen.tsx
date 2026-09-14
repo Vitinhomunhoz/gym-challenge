@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Theme, ThemeMode, useTheme } from '../theme';
+import { Theme, ThemeMode, useTheme, FONT } from '../theme';
 import { Avatar, Btn, Card, FadeSlideIn, SelectPill } from '../components/UI';
 import { useStore } from '../store';
 import { hasFirebase, signOut } from '../firebase';
@@ -116,11 +116,11 @@ function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    title: { color: T.text, fontSize: 20, fontWeight: '800' },
+    title: { color: T.text, fontSize: 20, fontFamily: FONT.extraBold },
     photoCard: { alignItems: 'center', gap: 12 },
-    name: { color: T.text, fontSize: 17, fontWeight: '800' },
+    name: { color: T.text, fontSize: 17, fontFamily: FONT.extraBold },
     photoActions: { width: '100%', gap: 10, marginTop: 4 },
-    sectionTitle: { color: T.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
+    sectionTitle: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 10 },
     pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   });
 }

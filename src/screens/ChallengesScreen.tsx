@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, FadeSlideIn, Progress } from '../components/UI';
 import { useStore } from '../store';
 
@@ -55,13 +55,13 @@ export function ChallengesScreen() {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    title: { color: T.text, fontSize: 24, fontWeight: '800', marginTop: 8 },
-    sub: { color: T.textDim, fontSize: 13, lineHeight: 19 },
+    title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
+    sub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13, lineHeight: 19 },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    label: { color: T.text, fontWeight: '700', fontSize: 15, flex: 1, paddingRight: 8 },
+    label: { color: T.text, fontFamily: FONT.bold, fontSize: 15, flex: 1, paddingRight: 8 },
     xpTag: { backgroundColor: T.goldSoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-    xp: { color: T.goldText, fontWeight: '800', fontSize: 12 },
-    progressText: { color: T.textDim, fontSize: 12 },
-    claimed: { color: T.green, fontWeight: '700', fontSize: 13 },
+    xp: { color: T.goldText, fontFamily: FONT.extraBold, fontSize: 12 },
+    progressText: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
+    claimed: { color: T.green, fontFamily: FONT.bold, fontSize: 13 },
   });
 }

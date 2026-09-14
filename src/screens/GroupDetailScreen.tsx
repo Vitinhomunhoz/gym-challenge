@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, StyleSheet,
-  Animated, Image, Modal, ActivityIndicator,
+  Animated, Image, Modal, ActivityIndicator, TextStyle,
 } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, Avatar, FadeSlideIn } from '../components/UI';
 import { useStore } from '../store';
 import {
@@ -22,11 +23,11 @@ function daysLeft(endKey: string): number {
   return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000));
 }
 
-function rankBadge(i: number): string {
-  if (i === 0) return '🥇';
-  if (i === 1) return '🥈';
-  if (i === 2) return '🥉';
-  return String(i + 1);
+const MEDAL_COLORS = ['#E8B923', '#B7C0CC', '#C97A3D']; // ouro, prata, bronze
+
+function RankMedal({ index, style }: { index: number; style: TextStyle }) {
+  if (index < 3) return <Ionicons name="medal" size={20} color={MEDAL_COLORS[index]} />;
+  return <Text style={style}>{index + 1}</Text>;
 }
 
 function formatDateLabel(dateKey: string): string {
@@ -51,7 +52,7 @@ function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPre
   });
   return (
     <Animated.View style={[s.rankRow, { backgroundColor: bg }]}>
-      <Text style={s.rankNum}>{rankBadge(index)}</Text>
+      <View style={s.rankNum}><RankMedal index={index} style={s.rankNumText} /></View>
       <Pressable onPress={onPressPhoto} disabled={!member.lastCheckinPhoto}>
         {member.lastCheckinPhoto
           ? <Image source={{ uri: member.lastCheckinPhoto }} style={s.rankPhoto} />
@@ -180,7 +181,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
           {myIndex >= 0 && (
             <FadeSlideIn delay={40}>
               <Card style={s.heroCard}>
-                <Text style={s.heroMedal}>{rankBadge(myIndex)}</Text>
+                <View style={s.heroMedal}><RankMedal index={myIndex} style={s.heroMedalText} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.heroLabel}>Sua posição</Text>
                   <Text style={s.heroRank}>{myIndex + 1}º de {ranked.length}</Text>
@@ -231,7 +232,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
                 </View>
               );
             })}
-            {messages.length === 0 && <Text style={s.empty}>Nenhuma mensagem ainda. Diga oi! 👋</Text>}
+            {messages.length === 0 && <Text style={s.empty}>Nenhuma mensagem ainda. Diga oi!</Text>}
           </ScrollView>
           <View style={s.inputRow}>
             <TextInput
@@ -243,7 +244,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
               onSubmitEditing={handleSend}
             />
             <Pressable onPress={handleSend} disabled={sending || !text.trim()} style={s.sendBtn}>
-              <Text style={s.sendBtnText}>➤</Text>
+              <Ionicons name="send" size={16} color="#fff" />
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -270,59 +271,60 @@ function makeStyles(T: Theme) {
       padding: 16, paddingBottom: 10, gap: 8, backgroundColor: T.surface,
       borderBottomWidth: 1, borderBottomColor: T.border, maxWidth: 560, width: '100%', alignSelf: 'center',
     },
-    title: { color: T.text, fontSize: 20, fontWeight: '800' },
-    sub: { color: T.textDim, fontSize: 12 },
+    title: { color: T.text, fontSize: 20, fontFamily: FONT.extraBold },
+    sub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
     toggleRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
     toggle: { flex: 1, paddingVertical: 8, borderRadius: 999, backgroundColor: T.surface2, alignItems: 'center' },
     toggleActive: { backgroundColor: T.primary },
-    toggleText: { color: T.textDim, fontWeight: '700', fontSize: 13 },
+    toggleText: { color: T.textDim, fontFamily: FONT.bold, fontSize: 13 },
     toggleTextActive: { color: '#fff' },
     content: { padding: 16, gap: 10, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    inviteLabel: { color: T.textDim, fontSize: 11, marginBottom: 4 },
-    inviteCode: { color: T.primary, fontSize: 20, fontWeight: '800', letterSpacing: 4 },
+    inviteLabel: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11, marginBottom: 4 },
+    inviteCode: { color: T.primary, fontSize: 20, fontFamily: FONT.extraBold, letterSpacing: 4 },
     heroCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       backgroundColor: T.primary, shadowColor: T.primary, shadowOpacity: 0.3,
     },
-    heroMedal: { fontSize: 28 },
-    heroLabel: { color: '#FFFFFFB0', fontSize: 11, fontWeight: '700' },
-    heroRank: { color: '#fff', fontSize: 18, fontWeight: '800' },
-    heroValue: { color: '#fff', fontSize: 20, fontWeight: '800' },
+    heroMedal: { width: 32, alignItems: 'center', justifyContent: 'center' },
+    heroMedalText: { color: '#fff', fontFamily: FONT.extraBold, fontSize: 20, textAlign: 'center' },
+    heroLabel: { color: '#FFFFFFB0', fontSize: 11, fontFamily: FONT.bold },
+    heroRank: { color: '#fff', fontSize: 18, fontFamily: FONT.extraBold },
+    heroValue: { color: '#fff', fontSize: 20, fontFamily: FONT.extraBold },
     rankRow: {
       flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14,
       borderRadius: T.radius,
       shadowColor: T.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 2,
     },
-    rankNum: { width: 26, color: T.textDim, fontWeight: '800', fontSize: 15, textAlign: 'center' },
+    rankNum: { width: 26, alignItems: 'center', justifyContent: 'center' },
+    rankNumText: { color: T.textDim, fontFamily: FONT.extraBold, fontSize: 15, textAlign: 'center' },
     rankPhoto: { width: 36, height: 36, borderRadius: 18, backgroundColor: T.surface2 },
-    rankName: { flex: 1, color: T.text, fontWeight: '700', fontSize: 14 },
-    rankValue: { color: T.text, fontWeight: '800', fontSize: 14 },
-    deltaUp: { color: T.green, fontWeight: '800', fontSize: 11 },
-    deltaDown: { color: T.red, fontWeight: '800', fontSize: 11 },
+    rankName: { flex: 1, color: T.text, fontFamily: FONT.bold, fontSize: 14 },
+    rankValue: { color: T.text, fontFamily: FONT.extraBold, fontSize: 14 },
+    deltaUp: { color: T.green, fontFamily: FONT.extraBold, fontSize: 11 },
+    deltaDown: { color: T.red, fontFamily: FONT.extraBold, fontSize: 11 },
     chatContent: { padding: 16, gap: 8, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    empty: { color: T.textDim, fontSize: 13, textAlign: 'center', marginTop: 20 },
+    empty: { color: T.textDim, fontFamily: FONT.regular, fontSize: 13, textAlign: 'center', marginTop: 20 },
     bubbleRow: { flexDirection: 'row' },
     bubbleRowMine: { justifyContent: 'flex-end' },
     bubble: { maxWidth: '78%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 9 },
     bubbleOther: { backgroundColor: T.surface2, alignSelf: 'flex-start' },
     bubbleMine: { backgroundColor: T.primary, alignSelf: 'flex-end' },
-    bubbleName: { color: T.primary, fontWeight: '800', fontSize: 11, marginBottom: 2 },
-    bubbleText: { color: T.text, fontSize: 14 },
+    bubbleName: { color: T.primary, fontFamily: FONT.extraBold, fontSize: 11, marginBottom: 2 },
+    bubbleText: { color: T.text, fontFamily: FONT.regular, fontSize: 14 },
     inputRow: {
       flexDirection: 'row', gap: 8, padding: 12, backgroundColor: T.surface,
       borderTopWidth: 1, borderTopColor: T.border, maxWidth: 560, width: '100%', alignSelf: 'center',
     },
     chatInput: {
       flex: 1, backgroundColor: T.surface2, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,
-      color: T.text, fontSize: 14,
+      color: T.text, fontSize: 14, fontFamily: FONT.regular,
     },
     sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.primary, alignItems: 'center', justifyContent: 'center' },
-    sendBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
     modalBackdrop: { flex: 1, backgroundColor: '#000000CC', alignItems: 'center', justifyContent: 'center', padding: 24 },
     modalCard: { backgroundColor: T.surface, borderRadius: T.radius, padding: 18, alignItems: 'center', gap: 8, maxWidth: 340, width: '100%' },
     modalPhoto: { width: 280, height: 280, borderRadius: 16, backgroundColor: T.surface2 },
-    modalName: { color: T.text, fontWeight: '800', fontSize: 16, marginTop: 4 },
-    modalDate: { color: T.textDim, fontSize: 12 },
+    modalName: { color: T.text, fontFamily: FONT.extraBold, fontSize: 16, marginTop: 4 },
+    modalDate: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
   });
 }
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, StyleSheet, Alert, Platform } from 'react-native';
-import { Theme, useTheme } from '../theme';
+import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, FadeSlideIn } from '../components/UI';
 import { useStore } from '../store';
 import { Exercise } from '../gamification';
@@ -103,7 +103,7 @@ export function WorkoutScreen({ onSaved }: { onSaved: (xp: number) => void }) {
       ))}
 
       <Btn label="+ Exercício" variant="ghost" onPress={() => update((d) => (d.push({ name: '', sets: [emptySet()] }), d))} />
-      <Btn label="Concluir treino 💪" onPress={save} />
+      <Btn label="Concluir treino" onPress={save} />
     </ScrollView>
   );
 }
@@ -111,20 +111,20 @@ export function WorkoutScreen({ onSaved }: { onSaved: (xp: number) => void }) {
 function makeStyles(T: Theme) {
   return StyleSheet.create({
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    title: { color: T.text, fontSize: 24, fontWeight: '800', marginTop: 8 },
+    title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
     input: {
       backgroundColor: T.surface2, borderRadius: 14,
-      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, marginBottom: 2,
+      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, marginBottom: 2, fontFamily: FONT.regular,
     },
     exHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     setHeaderRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 4 },
-    setLabel: { flex: 1, color: T.textDim, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+    setLabel: { flex: 1, color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1 },
     setRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    setNum: { flex: 1, color: T.primary, fontWeight: '800', textAlign: 'center' },
+    setNum: { flex: 1, color: T.primary, fontFamily: FONT.extraBold, textAlign: 'center' },
     setInput: {
       flex: 1, backgroundColor: T.surface2, borderRadius: 12,
-      color: T.text, paddingVertical: 11, textAlign: 'center',
+      color: T.text, paddingVertical: 11, textAlign: 'center', fontFamily: FONT.semiBold,
     },
-    remove: { color: T.textDim, fontSize: 16, width: 24, textAlign: 'center' },
+    remove: { color: T.textDim, fontFamily: FONT.regular, fontSize: 16, width: 24, textAlign: 'center' },
   });
 }

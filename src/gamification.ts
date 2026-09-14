@@ -69,18 +69,20 @@ export function computePRs(workouts: Workout[]): { name: string; weight: number 
 }
 
 // ---------- Badges ----------
+// icon: nome de ícone do Ionicons (@expo/vector-icons), não emoji — renderizado em
+// DashboardScreen via <Ionicons name={badge.icon} />.
 export type Badge = { id: string; icon: string; name: string; desc: string; unlocked: boolean };
 
 export function computeBadges(workouts: Workout[], streak: number, xp: number): Badge[] {
   const totalVolume = workouts.reduce((a, w) => a + w.volume, 0);
   const maxWeight = Math.max(0, ...workouts.flatMap((w) => w.exercises.flatMap((e) => e.sets.map((s) => s.weight))));
   return [
-    { id: 'first', icon: '🎯', name: 'Primeiro Passo', desc: 'Registre seu 1º treino', unlocked: workouts.length >= 1 },
-    { id: 'ten', icon: '📅', name: 'Frequente', desc: 'Complete 10 treinos', unlocked: workouts.length >= 10 },
-    { id: 'streak7', icon: '🔥', name: 'Semana de Fogo', desc: 'Streak de 7 dias', unlocked: streak >= 7 },
-    { id: 'club100', icon: '🏋️', name: 'Clube dos 100kg', desc: 'Série com 100kg ou mais', unlocked: maxWeight >= 100 },
-    { id: 'ton', icon: '🚚', name: 'Uma Tonelada', desc: '10.000 kg de volume total', unlocked: totalVolume >= 10000 },
-    { id: 'lvl5', icon: '⭐', name: 'Nível 5', desc: 'Alcance o nível 5', unlocked: levelFromXp(xp) >= 5 },
+    { id: 'first', icon: 'footsteps', name: 'Primeiro Passo', desc: 'Registre seu 1º treino', unlocked: workouts.length >= 1 },
+    { id: 'ten', icon: 'calendar', name: 'Frequente', desc: 'Complete 10 treinos', unlocked: workouts.length >= 10 },
+    { id: 'streak7', icon: 'flame', name: 'Semana de Fogo', desc: 'Streak de 7 dias', unlocked: streak >= 7 },
+    { id: 'club100', icon: 'barbell', name: 'Clube dos 100kg', desc: 'Série com 100kg ou mais', unlocked: maxWeight >= 100 },
+    { id: 'ton', icon: 'cube', name: 'Uma Tonelada', desc: '10.000 kg de volume total', unlocked: totalVolume >= 10000 },
+    { id: 'lvl5', icon: 'star', name: 'Nível 5', desc: 'Alcance o nível 5', unlocked: levelFromXp(xp) >= 5 },
   ];
 }
 

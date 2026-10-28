@@ -1,72 +1,67 @@
-# 🏋️ Gym Challenge
+# Gym Challenge
 
-App mobile (React Native + Expo) de gamificação de treinos — TCC.
-Roda no **PC (navegador)** e no **celular (Expo Go)** com o mesmo código.
+Diário de treino com gamificação, feito em React Native e Expo. O mesmo código abre no navegador e no celular (Expo Go). O protótipo registra o treino, calcula XP, nível, streak e recordes, e deixa competir em grupo por código de convite.
 
-## ▶️ Como rodar no PC
+Dá para usar sem conta. O **Modo Demo** guarda o diário neste aparelho e abre um grupo de exemplo (ranking e chat locais) para ver a tela social. O ranking entre pessoas de verdade usa login com Google e o Firestore.
+
+## Como rodar
 
 ```bash
 npm install
-npm run web        # abre em http://localhost:8081
+npm run web      # navegador, em http://localhost:8081
+npm start        # QR code para o Expo Go
+npm test         # Jest: XP, nível, datas, fotos
 ```
 
-## 📱 Como rodar no celular
+No celular, o login com Google não funciona dentro do Expo Go. Use o Modo Demo, ou o navegador.
 
-```bash
-npm start          # escaneie o QR code com o app Expo Go
-```
+## O que cada tela faz
 
-## 🔐 Login com Google (Firebase)
+| Tela | O que acontece |
+| --- | --- |
+| Início | Nível, XP até o próximo nível, streak, volume e conquistas. O nome abre o perfil (foto, tema claro/escuro/automático e sair). |
+| Treino | Só salva se houver ao menos um exercício com nome e uma série com repetições. Volume e XP são calculados na hora. |
+| Desafios | Dois desafios do dia, os mesmos para todo mundo naquela data. O bônus de XP é resgatado uma vez. |
+| Check-in | Foto pela câmera ou pela galeria, como declaração de que treinou hoje. Não confere o local nem a data da foto. |
+| Histórico | Calendário mês a mês (até o mês atual), recordes de carga e os treinos daquele dia. |
+| Grupos | Criar ou entrar com um código. Dentro: ranking do período (7, 14 ou 30 dias) e chat. No Modo Demo, o grupo **Galera da Academia** é um exemplo só deste aparelho. |
 
-O app já funciona em **Modo Demo** sem configurar nada (dados salvos localmente).
-Para ativar o login Google:
+Sair da conta limpa a sessão na memória. O diário continua no aparelho e volta no próximo acesso da mesma conta (ou do demo).
 
-1. Crie um projeto em https://console.firebase.google.com
-2. Adicione um app **Web** e copie o objeto `firebaseConfig`
-3. Cole em `src/firebase.ts` (substituindo os placeholders)
-4. Em **Authentication > Sign-in method**, habilite **Google**
-5. Em **Authentication > Settings > Authorized domains**, confirme que `localhost` está na lista
-6. Rode `npm run web` — o botão "Entrar com Google" fica ativo no navegador
+## Regras de jogo
 
-> No celular, login Google via popup não funciona no Expo Go — use o Modo Demo
-> ou gere um dev build com `@react-native-firebase` (ver conversa do projeto).
+**XP de um treino:** 50 + 10 por exercício + `volume / 100`, com o bônus de volume limitado a 150. Carga ou repetição inválida entra como zero, então o XP não fica abaixo da base.
 
-## 🧠 Por que a persistência é híbrida (local + Firebase)
+**Nível:** `floor(√(XP / 150)) + 1`. O nível N começa em `150 × (N − 1)²` XP. Os títulos vão de Iniciante a Mestre de Ferro.
 
-O app usa **dois** mecanismos de persistência, de propósito:
+**Streak:** dias seguidos com pelo menos um treino. Se hoje ainda não teve treino, a sequência de ontem continua valendo.
 
-- **AsyncStorage (local, por usuário)** guarda os dados pessoais e sensíveis —
-  treinos, XP, streak e as fotos-prova de check-in. Ficam só no aparelho do usuário,
-  não trafegam para nenhum servidor e não exigem conexão. É uma escolha de
-  **privacidade por padrão**: ninguém além do próprio usuário tem acesso ao seu
-  histórico completo de treinos.
-- **Firebase (Auth + Firestore)** guarda só o que é **compartilhado por natureza**:
-  identidade do usuário (login Google), grupos, mensagens do chat e os contadores
-  agregados do ranking (check-ins, treinos e volume por período). Nada disso exige
-  o histórico bruto do usuário — só os totais que ele mesmo optou por expor ao entrar
-  num grupo.
+**Recordes:** a maior carga de cada exercício com peso acima de zero. O nome é exibido com a capitalização em português (`Supino reto` vira `Supino Reto`).
 
-Essa separação não é uma inconsistência entre "o que o diagrama diz" e "o que o
-código faz" — é a decisão arquitetural em si: dado pessoal fica local, dado social
-fica na nuvem. Ver [`src/store.tsx`](src/store.tsx) (persistência local) e
-[`src/groups.ts`](src/groups.ts) (persistência em nuvem).
+**Conquistas**
 
-## 🛡️ Integridade do ranking
+| Nome | Quando abre |
+| --- | --- |
+| Primeiro Passo | 1 treino registrado |
+| Frequente | 10 treinos |
+| Semana de Fogo | streak de 7 dias |
+| Clube dos 100kg | uma série com 100 kg ou mais |
+| Uma Tonelada | 1.000 kg de volume acumulado |
+| Nível 5 | chegar no nível 5 |
 
-Os contadores de um grupo (`checkinsCount`, `workoutsCount`, `volumeKg`) ainda são
-escritos pelo cliente (`src/groups.ts`), mas cada escrita passa pela validação das
-[`firestore.rules`](firestore.rules) publicadas: o placar só pode subir em um passo
-pequeno por escrita (no máximo +1 check-in, +1 treino, +50.000kg de volume) e nunca
-diminuir, e só nome/foto podem ser alterados livremente. Isso bloqueia o ataque óbvio
-— setar `checkinsCount: 999999` direto no documento — sem exigir nenhum serviço pago.
+## Onde os dados ficam
 
-**Por que não é 100% à prova de trapaça:** a regra valida cada escrita isoladamente,
-então nada impede alguém de repetir a mesma escrita pequena várias vezes na mão. A
-solução completa pra isso — mover a validação pra um servidor que só aceita um
-evento por dia por usuário — já está pronta e testada em `functions/src/index.ts`,
-só não está publicada porque exige o **plano Blaze** do Firebase (pago por uso; a
-tentativa de deploy nesse projeto falhou por conta disso, e ficou decidido não
-insistir agora). Se um dia quiser ativar essa camada extra:
+O diário pessoal fica no aparelho (AsyncStorage, separado por usuário): treinos, XP, streak, desafios resgatados e as fotos de check-in. Isso não sobe para o servidor.
+
+O Firestore guarda só o que o grupo precisa ver: perfil (nome e foto), código de convite, contadores do ranking e as mensagens do chat. Entrar num grupo publica esses totais, não a ficha de cada série.
+
+Fotos grandes são reduzidas na web. Se ainda assim não couberem no documento (limite de 1 MB) ou no armazenamento local, o contador do grupo segue e a foto fica de fora daquela gravação.
+
+## Ranking e o que a regra não cobre
+
+Cada membro só aumenta o próprio placar, em um passo por escrita: no máximo +1 check-in, +1 treino e +50.000 kg, e o valor não pode cair. Nome e foto podem ser atualizados. A coleção de códigos de convite permite ler um código, não listar todos.
+
+Isso impede gravar um placar absurdo num único pedido. Não impede repetir o mesmo incremento várias vezes. A validação de “um evento por dia” está em `functions/src/index.ts`, testada, e ainda não publicada: o deploy exige o plano Blaze do Firebase. Para publicar regras e functions juntas:
 
 ```bash
 npx firebase-tools login
@@ -74,48 +69,23 @@ cd functions && npm run build && cd ..
 npx firebase-tools deploy --only firestore:rules,functions
 ```
 
-(vai pedir pra trocar as regras de `members/{uid}` pra bloquear escrita direta do
-cliente nos campos de placar, já que quem passaria a somar seria só a Function).
+Ao publicar as functions, as regras de `members/{uid}` precisam passar a bloquear a escrita direta do placar, porque quem soma passa a ser só a Function.
 
-## ✅ Testes
+O projeto Firebase já está apontado em `src/firebase.ts` (`gym-chalenge`). O botão **Entrar com Google** usa redirect e volta para o app. No console do Firebase, o domínio em que o app está aberto (por exemplo `localhost`) precisa estar em Authentication → Settings → Authorized domains, com o provedor Google ligado.
 
-Regras de gamificação (XP, nível, streak, badges, desafios diários) são funções
-puras e têm testes unitários com Jest:
-
-```bash
-npm test
-```
-
-## 🗂️ Estrutura
+## Estrutura
 
 ```
-App.tsx                     # roteamento por auth + tabs + toast de XP
-firestore.rules             # regras de segurança do Firestore
-firebase.json, .firebaserc  # config do Firebase CLI (rules + functions)
-functions/src/index.ts      # Cloud Functions: valida e soma o placar dos grupos
-src/
-  firebase.ts               # config Firebase + login Google
-  gamification.ts           # XP, níveis, streak, badges, desafios diários, PRs
-  gamification.test.ts      # testes unitários das regras de gamificação
-  groups.ts                 # grupos, ranking (via eventos) e chat — Firestore
-  store.tsx                 # estado global + persistência local (AsyncStorage por usuário)
-  theme.ts                  # paleta "Ferro & Brasa"
-  components/UI.tsx         # Card, Btn, Progress, LevelRing, Stat
-  screens/
-    LoginScreen.tsx         # Google + Modo Demo
-    DashboardScreen.tsx     # nível, XP, streak, conquistas
-    WorkoutScreen.tsx       # log de treino (exercícios, séries, reps, carga)
-    ChallengesScreen.tsx    # desafios diários + resgate de XP
-    HistoryScreen.tsx       # calendário do mês, PRs, últimos treinos
-    CheckinScreen.tsx       # foto-prova do treino do dia
-    GroupsScreen.tsx        # listar/criar/entrar em grupos
-    GroupDetailScreen.tsx   # ranking do grupo + chat interno
+App.tsx                  abas, sessão e aviso de XP
+firestore.rules          regras do Firestore
+functions/src/index.ts   soma do placar no servidor (não publicada)
+src/firebase.ts          Auth e Firestore
+src/store.tsx            estado e diário local
+src/gamification.ts      XP, nível, streak, desafios, recordes e conquistas
+src/groups.ts            grupos, ranking e chat
+src/demoGroup.ts         grupo de exemplo do Modo Demo
+src/photos.ts            foto que cabe no Firestore e no aparelho
+src/theme.tsx            claro, escuro e automático
+src/components/UI.tsx    cartão, botão, anel de nível
+src/screens/             login, início, treino, desafios, check-in, histórico, grupos, perfil
 ```
-
-## 🎮 Regras de gamificação
-
-- **XP por treino:** 50 base + 10/exercício + volume/100 (teto de 150, evita farm)
-- **Nível:** `nível = √(XP/150) + 1` (curva quadrática)
-- **Streak:** dias consecutivos com treino registrado (não quebra se ainda for hoje)
-- **Desafios diários:** 2 por dia, sorteados deterministicamente pela data
-- **Badges:** 1º treino, 10 treinos, streak 7, Clube dos 100kg, 1 tonelada, nível 5

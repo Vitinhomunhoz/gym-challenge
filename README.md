@@ -9,11 +9,24 @@ Dá para usar sem conta. O **Modo Demo** guarda o diário neste aparelho e abre 
 ```bash
 npm install
 npm run web      # navegador, em http://localhost:8081
-npm start        # QR code para o Expo Go
+npm start        # servidor para o celular (Expo Go)
 npm test         # Jest: XP, nível, datas, fotos
 ```
 
-No celular, o login com Google não funciona dentro do Expo Go. Use o Modo Demo, ou o navegador.
+No navegador do celular o app também abre, no mesmo endereço da sua rede (o terminal mostra o IP). O formulário de treino cabe na largura da tela.
+
+### No celular, com o Expo Go
+
+O projeto usa o Expo SDK 52. O Expo Go da loja, em 2026, é de um SDK mais novo e recusa este projeto. No Android dá para instalar o Expo Go feito para o SDK 52:
+
+1. Computador e celular na mesma rede Wi-Fi.
+2. No Android, instale o Expo Go 2.32.20: [expo.dev/go](https://expo.dev/go?device=true&platform=android&sdkVersion=52) (o APK também está em [Expo-Go-2.32.20.apk](https://github.com/expo/expo-go-releases/releases/download/Expo-Go-2.32.20/Expo-Go-2.32.20.apk)).
+3. Na pasta do projeto, `npm start`.
+4. No Expo Go, escaneie o QR code do terminal. Se o celular não achar o computador, pare o servidor e rode `npx expo start --tunnel`.
+
+Entre em **Modo Demo**. O login com Google não funciona dentro do Expo Go. Câmera e galeria do check-in funcionam.
+
+No iPhone físico a Apple não deixa instalar essa versão antiga do Expo Go. Aí o caminho é o navegador (Safari) ou um build de desenvolvimento (`eas build`), que gera um app instalável e exige conta na Expo. Um build para iPhone também pede o programa de desenvolvedor da Apple.
 
 ## O que cada tela faz
 

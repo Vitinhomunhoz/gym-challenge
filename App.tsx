@@ -201,6 +201,18 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+  // No celular, o <input> do navegador não encolhe abaixo da largura padrão
+  // (~20 caracteres). A série (reps + carga) passava da borda da tela.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const id = 'gym-mobile-input-fix';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = 'input, textarea { min-width: 0 !important; max-width: 100%; font-size: 16px; }';
+    document.head.appendChild(style);
+  }, []);
+
   // Sem tela de loading própria (T.bg) aqui: o ThemeProvider ainda não montou nesse
   // ponto, então usa só a cor de fundo clara padrão até a fonte carregar (é rápido).
   if (!fontsLoaded && !fontError && !timedOut) {

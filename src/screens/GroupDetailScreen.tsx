@@ -396,8 +396,9 @@ function makeStyles(T: Theme) {
       borderTopWidth: 1, borderTopColor: T.border, maxWidth: 560, width: '100%', alignSelf: 'center',
     },
     chatInput: {
-      flex: 1, backgroundColor: T.surface2, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,
-      color: T.text, fontSize: 14, fontFamily: FONT.regular,
+      flex: 1, flexBasis: 0, minWidth: 0, maxWidth: '100%',
+      backgroundColor: T.surface2, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10,
+      color: T.text, fontSize: 16, fontFamily: FONT.regular,
     },
     sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.primary, alignItems: 'center', justifyContent: 'center' },
     leaveText: { color: T.text, fontFamily: FONT.regular, fontSize: 14, lineHeight: 20 },

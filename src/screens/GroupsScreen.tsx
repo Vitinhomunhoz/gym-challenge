@@ -297,8 +297,9 @@ function makeStyles(T: Theme) {
     groupMeta: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
     groupDays: { color: T.primary, fontFamily: FONT.bold, fontSize: 12 },
     input: {
+      width: '100%', maxWidth: '100%', minWidth: 0,
       backgroundColor: T.surface2, borderRadius: 14,
-      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: FONT.regular,
+      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, fontFamily: FONT.regular,
     },
     label: { color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1, marginBottom: 8 },
     pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

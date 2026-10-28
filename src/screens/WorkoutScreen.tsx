@@ -61,7 +61,7 @@ export function WorkoutScreen({ onSaved }: { onSaved: (xp: number) => void }) {
 
         <TextInput
           style={s.input}
-          placeholder="Nome do treino (ex: Treino A — Peito e Tríceps)"
+          placeholder="Nome do treino"
           placeholderTextColor={T.textDim}
           value={title}
           onChangeText={(v) => { setTitle(v); setError(''); }}
@@ -74,8 +74,8 @@ export function WorkoutScreen({ onSaved }: { onSaved: (xp: number) => void }) {
           <Card style={{ gap: 10 }}>
             <View style={s.exHeader}>
               <TextInput
-                style={[s.input, { flex: 1, marginBottom: 0 }]}
-                placeholder={`Exercício ${i + 1} (ex: Supino reto)`}
+                style={[s.input, s.flexInput]}
+                placeholder="Exercício"
                 placeholderTextColor={T.textDim}
                 value={ex.name}
                 onChangeText={(v) => { setError(''); update((d) => ((d[i].name = v), d)); }}
@@ -91,7 +91,7 @@ export function WorkoutScreen({ onSaved }: { onSaved: (xp: number) => void }) {
               <Text style={s.setLabel}>SÉRIE</Text>
               <Text style={s.setLabel}>REPS</Text>
               <Text style={s.setLabel}>CARGA (KG)</Text>
-              <View style={{ width: 24 }} />
+              <View style={s.removeSlot} />
             </View>
 
             {ex.sets.map((st, j) => (
@@ -129,18 +129,24 @@ function makeStyles(T: Theme) {
     content: { padding: 16, gap: 14, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
     title: { color: T.text, fontSize: 24, fontFamily: FONT.extraBold, marginTop: 8 },
     input: {
+      width: '100%', maxWidth: '100%', minWidth: 0,
       backgroundColor: T.surface2, borderRadius: 14,
-      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, marginBottom: 2, fontFamily: FONT.regular,
+      color: T.text, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, marginBottom: 2, fontFamily: FONT.regular,
     },
-    exHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    setHeaderRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 4 },
-    setLabel: { flex: 1, color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1 },
-    setRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    setNum: { flex: 1, color: T.primary, fontFamily: FONT.extraBold, textAlign: 'center' },
+    // minWidth 0 deixa o campo encolher no celular. Sem isso, o navegador
+    // reserva a largura padrão do <input> (~20 caracteres) e a série estoura a tela.
+    flexInput: { flex: 1, flexBasis: 0, minWidth: 0, width: 'auto', marginBottom: 0 },
+    exHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' },
+    setHeaderRow: { flexDirection: 'row', gap: 8, width: '100%' },
+    setLabel: { flex: 1, minWidth: 0, color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 0.4 },
+    setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+    setNum: { flex: 1, minWidth: 0, color: T.primary, fontFamily: FONT.extraBold, textAlign: 'center' },
     setInput: {
-      flex: 1, backgroundColor: T.surface2, borderRadius: 12,
-      color: T.text, paddingVertical: 11, textAlign: 'center', fontFamily: FONT.semiBold,
+      flex: 1, flexBasis: 0, minWidth: 0, maxWidth: '100%',
+      backgroundColor: T.surface2, borderRadius: 12,
+      color: T.text, paddingVertical: 11, textAlign: 'center', fontSize: 16, fontFamily: FONT.semiBold,
     },
+    removeSlot: { width: 24, flexGrow: 0, flexShrink: 0 },
     remove: { color: T.textDim, fontFamily: FONT.regular, fontSize: 16, width: 24, textAlign: 'center' },
     error: { color: T.red, fontFamily: FONT.semiBold, fontSize: 13, lineHeight: 18 },
   });

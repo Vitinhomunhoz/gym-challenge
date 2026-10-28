@@ -162,12 +162,13 @@ export const LevelRing = ({ level, pct }: { level: number; pct: number }) => {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
+  const clamped = Math.min(1, Math.max(0, Number.isFinite(pct) ? pct : 0));
   const anim = React.useRef(new Animated.Value(0)).current;
   const pop = React.useRef(new Animated.Value(0.7)).current;
 
   React.useEffect(() => {
-    Animated.timing(anim, { toValue: pct, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [pct]);
+    Animated.timing(anim, { toValue: clamped, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [clamped]);
 
   React.useEffect(() => {
     Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 9 }).start();

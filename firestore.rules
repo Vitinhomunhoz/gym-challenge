@@ -52,8 +52,11 @@ service cloud.firestore {
     }
 
     // ---------- Códigos de convite ----------
+    // get (um código) libera o convite. list fica fechado: com allow read,
+    // qualquer usuário logado lia a coleção inteira e entrava em grupo alheio.
     match /inviteCodes/{code} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if false;
       // só registra um código para um grupo do qual o próprio usuário é dono
       allow create: if isSignedIn()
         && get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.ownerUid == request.auth.uid;

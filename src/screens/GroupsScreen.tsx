@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TextInput, Pressable, StyleSheet, Alert, Platform,
+  View, Text, ScrollView, TextInput, Pressable, StyleSheet,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, FadeSlideIn, SelectPill } from '../components/UI';
 import { useStore } from '../store';
 import { hasFirebase } from '../firebase';
+import { daysRemaining } from '../gamification';
 import {
   Group, RuleType, RULE_LABELS, getUserGroupIds, getGroup, getMemberCount,
   createGroup, joinGroupByCode,
@@ -16,21 +17,12 @@ import { GroupDetailScreen } from './GroupDetailScreen';
 const RULE_TYPES: RuleType[] = ['checkins', 'workouts', 'volume'];
 const PERIODS: (7 | 14 | 30)[] = [7, 14, 30];
 
-function warn(msg: string) {
-  Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Grupos', msg);
-}
-
-function daysLeft(endKey: string): number {
-  const end = new Date(`${endKey}T23:59:59`);
-  return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000));
-}
-
 type GroupWithCount = Group & { memberCount: number };
 
 export function GroupsScreen() {
   const { theme: T } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
-  const { user, refreshGroupIds } = useStore();
+  const { user, refreshGroupIds, noteGroupJoined } = useStore();
   const [groups, setGroups] = useState<GroupWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +34,7 @@ export function GroupsScreen() {
   const [periodDays, setPeriodDays] = useState<7 | 14 | 30>(7);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const loadGroups = useCallback(async () => {
     // Modo Demo / sem Firebase não tem grupos de verdade — evita bater no Firestore
@@ -49,17 +42,28 @@ export function GroupsScreen() {
     if (!user || !hasFirebase || user.demo) return;
     const ids = await getUserGroupIds(user.uid);
     const details = await Promise.all(ids.map(async (id) => {
-      const g = await getGroup(id);
-      if (!g) return null;
-      const memberCount = await getMemberCount(id);
-      return { ...g, memberCount };
+      try {
+        const g = await getGroup(id);
+        if (!g) return null;
+        const memberCount = await getMemberCount(id);
+        return { ...g, memberCount };
+      } catch {
+        return null;
+      }
     }));
-    setGroups(details.filter((g): g is GroupWithCount => g !== null));
+    const loaded = details.filter((g): g is GroupWithCount => g !== null);
+    setGroups(loaded);
+    if (ids.length > 0 && loaded.length === 0) {
+      throw new Error('Não foi possível carregar seus grupos.');
+    }
   }, [user?.uid, user?.demo]);
 
   useEffect(() => {
     setLoading(true);
-    loadGroups().catch(() => {}).finally(() => setLoading(false));
+    loadGroups()
+      .then(() => setFormError(''))
+      .catch((e) => setFormError(e?.message ?? 'Não foi possível carregar seus grupos.'))
+      .finally(() => setLoading(false));
   }, [loadGroups]);
 
   async function handleRefresh() {
@@ -69,34 +73,38 @@ export function GroupsScreen() {
   }
 
   async function handleCreate() {
-    if (!user || !name.trim()) { warn('Dê um nome para o grupo.'); return; }
+    if (!user || !name.trim()) { setFormError('Dê um nome para o grupo.'); return; }
     setBusy(true);
+    setFormError('');
     try {
       const g = await createGroup(user, name, ruleType, periodDays);
-      refreshGroupIds();
+      noteGroupJoined(g.id);
+      await refreshGroupIds();
       setName('');
       setShowCreate(false);
-      await loadGroups();
+      await loadGroups().catch(() => {});
       setSelectedGroupId(g.id);
     } catch (e: any) {
-      warn(e?.message ?? 'Não foi possível criar o grupo.');
+      setFormError(e?.message ?? 'Não foi possível criar o grupo.');
     } finally {
       setBusy(false);
     }
   }
 
   async function handleJoin() {
-    if (!user || !code.trim()) return;
+    if (!user || !code.trim()) { setFormError('Digite o código do grupo.'); return; }
     setBusy(true);
+    setFormError('');
     try {
       const groupId = await joinGroupByCode(user, code);
-      refreshGroupIds();
+      noteGroupJoined(groupId);
+      await refreshGroupIds();
       setCode('');
       setShowJoin(false);
-      await loadGroups();
+      await loadGroups().catch(() => {});
       setSelectedGroupId(groupId);
     } catch (e: any) {
-      warn(e?.message ?? 'Não foi possível entrar no grupo.');
+      setFormError(e?.message ?? 'Não foi possível entrar no grupo.');
     } finally {
       setBusy(false);
     }
@@ -106,7 +114,7 @@ export function GroupsScreen() {
     return (
       <GroupDetailScreen
         groupId={selectedGroupId}
-        onBack={() => { setSelectedGroupId(null); loadGroups().catch(() => {}); }}
+        onBack={() => { setSelectedGroupId(null); loadGroups().catch((e) => setFormError(e?.message ?? 'Não foi possível carregar seus grupos.')); }}
       />
     );
   }
@@ -137,6 +145,7 @@ export function GroupsScreen() {
       <FadeSlideIn>
         <Text style={s.title}>Grupos</Text>
         <Text style={s.sub}>Crie ou entre num grupo e compita com amigos por check-ins, treinos ou volume.</Text>
+        {!!formError && !showCreate && !showJoin && <Text style={s.error}>{formError}</Text>}
       </FadeSlideIn>
 
       {loading && (
@@ -160,7 +169,7 @@ export function GroupsScreen() {
                 </Text>
               </View>
               <Text style={s.groupDays}>
-                {daysLeft(g.periodEndKey) > 0 ? `${daysLeft(g.periodEndKey)}d restantes` : 'Encerrado'}
+                {daysRemaining(g.periodEndKey) > 0 ? `${daysRemaining(g.periodEndKey)}d restantes` : 'Encerrado'}
               </Text>
             </Card>
           </Pressable>
@@ -199,6 +208,7 @@ export function GroupsScreen() {
               </View>
             </View>
             <Btn label={busy ? 'Criando…' : 'Criar grupo'} onPress={handleCreate} disabled={busy} />
+            {!!formError && showCreate && <Text style={s.error}>{formError}</Text>}
           </Card>
         </FadeSlideIn>
       )}
@@ -221,6 +231,7 @@ export function GroupsScreen() {
               onChangeText={setCode}
             />
             <Btn label={busy ? 'Entrando…' : 'Entrar'} variant="gold" onPress={handleJoin} disabled={busy} />
+            {!!formError && showJoin && <Text style={s.error}>{formError}</Text>}
           </Card>
         </FadeSlideIn>
       )}
@@ -245,5 +256,6 @@ function makeStyles(T: Theme) {
     },
     label: { color: T.textDim, fontSize: 10, fontFamily: FONT.bold, letterSpacing: 1, marginBottom: 8 },
     pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    error: { color: T.red, fontFamily: FONT.semiBold, fontSize: 13, lineHeight: 18 },
   });
 }

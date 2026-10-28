@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, Avatar, FadeSlideIn } from '../components/UI';
 import { useStore } from '../store';
+import { daysRemaining } from '../gamification';
 import {
   Group, GroupMember, GroupMessage, RuleType, RULE_LABELS,
   getGroup, subscribeMembers, subscribeMessages, sendMessage, leaveGroup,
@@ -18,12 +19,12 @@ const METRIC_FIELD: Record<RuleType, keyof GroupMember> = {
   volume: 'volumeKg',
 };
 
-function daysLeft(endKey: string): number {
-  const end = new Date(`${endKey}T23:59:59`);
-  return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000));
-}
-
 const MEDAL_COLORS = ['#E8B923', '#B7C0CC', '#C97A3D']; // ouro, prata, bronze
+
+function memberScore(member: GroupMember, metricKey: keyof GroupMember): number {
+  const value = member[metricKey];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
 
 function RankMedal({ index, style }: { index: number; style: TextStyle }) {
   if (index < 3) return <Ionicons name="medal" size={20} color={MEDAL_COLORS[index]} />;
@@ -61,7 +62,7 @@ function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPre
       <Text style={s.rankName} numberOfLines={1}>{member.name}</Text>
       {delta > 0 && <Text style={s.deltaUp}>▲{delta}</Text>}
       {delta < 0 && <Text style={s.deltaDown}>▼{Math.abs(delta)}</Text>}
-      <Text style={s.rankValue}>{(member[metricKey] as number).toLocaleString('pt-BR')}{unit}</Text>
+      <Text style={s.rankValue}>{memberScore(member, metricKey).toLocaleString('pt-BR')}{unit}</Text>
     </Animated.View>
   );
 }
@@ -69,8 +70,9 @@ function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPre
 export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack: () => void }) {
   const { theme: T } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
-  const { user } = useStore();
+  const { user, refreshGroupIds, noteGroupLeft } = useStore();
   const [group, setGroup] = useState<Group | null>(null);
+  const [groupMissing, setGroupMissing] = useState(false);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [view, setView] = useState<'ranking' | 'chat'>('ranking');
@@ -78,6 +80,8 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
   const [sending, setSending] = useState(false);
   const [deltas, setDeltas] = useState<Record<string, number>>({});
   const [viewPhoto, setViewPhoto] = useState<{ uri: string; name: string; date?: string } | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const flashAnims = useRef<Record<string, Animated.Value>>({});
@@ -89,9 +93,25 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
     return flashAnims.current[uid];
   }
 
-  useEffect(() => { getGroup(groupId).then(setGroup); }, [groupId]);
-  useEffect(() => subscribeMembers(groupId, setMembers), [groupId]);
-  useEffect(() => subscribeMessages(groupId, setMessages), [groupId]);
+  useEffect(() => {
+    let cancelled = false;
+    setGroup(null);
+    setGroupMissing(false);
+    getGroup(groupId).then((g) => {
+      if (cancelled) return;
+      setGroup(g);
+      setGroupMissing(!g);
+    }).catch(() => {
+      if (!cancelled) setGroupMissing(true);
+    });
+    return () => { cancelled = true; };
+  }, [groupId]);
+  useEffect(() => {
+    try { return subscribeMembers(groupId, setMembers); } catch { return undefined; }
+  }, [groupId]);
+  useEffect(() => {
+    try { return subscribeMessages(groupId, setMessages); } catch { return undefined; }
+  }, [groupId]);
 
   useEffect(() => {
     if (view === 'chat') requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
@@ -102,7 +122,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
   useEffect(() => {
     if (!group || members.length === 0) return;
     const metricKey = METRIC_FIELD[group.ruleType];
-    const ranked = [...members].sort((a, b) => (b[metricKey] as number) - (a[metricKey] as number));
+    const ranked = [...members].sort((a, b) => memberScore(b, metricKey) - memberScore(a, metricKey));
 
     const newDeltas: Record<string, number> = {};
     ranked.forEach((m, i) => {
@@ -110,7 +130,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
       if (prevRank !== undefined && prevRank !== i) newDeltas[m.uid] = prevRank - i;
       prevRankRef.current[m.uid] = i;
 
-      const cur = m[metricKey] as number;
+      const cur = memberScore(m, metricKey);
       const prevVal = prevValueRef.current[m.uid];
       if (prevVal !== undefined && cur > prevVal) {
         const anim = getFlashAnim(m.uid);
@@ -126,9 +146,13 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
     if (!user || !text.trim() || sending) return;
     const t = text;
     setText('');
+    setActionError('');
     setSending(true);
     try {
       await sendMessage(groupId, user, t);
+    } catch {
+      setText(t);
+      setActionError('Não foi possível enviar a mensagem.');
     } finally {
       setSending(false);
     }
@@ -136,24 +160,37 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
 
   async function handleLeave() {
     if (!user) return;
-    await leaveGroup(user.uid, groupId);
-    onBack();
+    setActionError('');
+    try {
+      await leaveGroup(user.uid, groupId);
+      noteGroupLeft(groupId);
+      await refreshGroupIds();
+      onBack();
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Não foi possível sair do grupo.');
+    }
   }
 
   if (!group) {
     return (
-      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={T.primary} />
+      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+        {groupMissing ? (
+          <>
+            <Text style={{ color: T.text, fontFamily: FONT.bold, textAlign: 'center' }}>Não foi possível abrir esse grupo.</Text>
+            <Btn label="Voltar" onPress={onBack} />
+          </>
+        ) : (
+          <ActivityIndicator color={T.primary} />
+        )}
       </View>
     );
   }
 
   const metricKey = METRIC_FIELD[group.ruleType];
   const unit = group.ruleType === 'volume' ? ' kg' : '';
-  const ranked = [...members].sort((a, b) => (b[metricKey] as number) - (a[metricKey] as number));
+  const ranked = [...members].sort((a, b) => memberScore(b, metricKey) - memberScore(a, metricKey));
   const myIndex = ranked.findIndex((m) => m.uid === user?.uid);
-  const isOwner = user?.uid === group.ownerUid;
-  const remaining = daysLeft(group.periodEndKey);
+  const remaining = daysRemaining(group.periodEndKey);
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -187,7 +224,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
                   <Text style={s.heroRank}>{myIndex + 1}º de {ranked.length}</Text>
                 </View>
                 <Text style={s.heroValue}>
-                  {(ranked[myIndex][metricKey] as number).toLocaleString('pt-BR')}{unit}
+                  {memberScore(ranked[myIndex], metricKey).toLocaleString('pt-BR')}{unit}
                 </Text>
               </Card>
             </FadeSlideIn>
@@ -212,11 +249,18 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
             </FadeSlideIn>
           ))}
 
-          {!isOwner && (
-            <FadeSlideIn delay={90 + ranked.length * 50}>
-              <Btn label="Sair do grupo" variant="ghost" onPress={handleLeave} />
-            </FadeSlideIn>
-          )}
+          <FadeSlideIn delay={90 + ranked.length * 50}>
+            {confirmingLeave ? (
+              <Card style={{ gap: 10 }}>
+                <Text style={s.leaveText}>Sair deste grupo? Seu placar aqui deixa de ser atualizado.</Text>
+                <Btn label="Confirmar saída" onPress={handleLeave} />
+                <Btn label="Cancelar" variant="ghost" onPress={() => setConfirmingLeave(false)} />
+              </Card>
+            ) : (
+              <Btn label="Sair do grupo" variant="ghost" onPress={() => setConfirmingLeave(true)} />
+            )}
+            {!!actionError && <Text style={s.actionError}>{actionError}</Text>}
+          </FadeSlideIn>
         </ScrollView>
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -247,6 +291,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
               <Ionicons name="send" size={16} color="#fff" />
             </Pressable>
           </View>
+          {!!actionError && <Text style={s.actionError}>{actionError}</Text>}
         </KeyboardAvoidingView>
       )}
 
@@ -320,6 +365,8 @@ function makeStyles(T: Theme) {
       color: T.text, fontSize: 14, fontFamily: FONT.regular,
     },
     sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: T.primary, alignItems: 'center', justifyContent: 'center' },
+    leaveText: { color: T.text, fontFamily: FONT.regular, fontSize: 14, lineHeight: 20 },
+    actionError: { color: T.red, fontFamily: FONT.semiBold, fontSize: 13, textAlign: 'center', paddingHorizontal: 16, paddingBottom: 8 },
     modalBackdrop: { flex: 1, backgroundColor: '#000000CC', alignItems: 'center', justifyContent: 'center', padding: 24 },
     modalCard: { backgroundColor: T.surface, borderRadius: T.radius, padding: 18, alignItems: 'center', gap: 8, maxWidth: 340, width: '100%' },
     modalPhoto: { width: 280, height: 280, borderRadius: 16, backgroundColor: T.surface2 },

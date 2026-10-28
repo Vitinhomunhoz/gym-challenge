@@ -8,7 +8,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { AppUser } from './firebase';
-import { toKey, todayKey } from './gamification';
+import { addDaysKey, todayKey } from './gamification';
+import { firestorePhoto } from './photos';
 
 export type RuleType = 'checkins' | 'workouts' | 'volume';
 
@@ -90,7 +91,9 @@ export async function createGroup(
   const d = requireDb();
   const groupRef = doc(collection(d, 'groups'));
   const periodStartKey = todayKey();
-  const periodEndKey = toKey(new Date(Date.now() + periodDays * 86400000));
+  // Inclusivo: "7 dias" a partir de hoje termina daqui a 6 dias de calendário,
+  // não em now+7*24h (isso mostrava 8 dias e escorregava com horário de verão).
+  const periodEndKey = addDaysKey(periodStartKey, periodDays - 1);
   let inviteCode = randomCode();
 
   const group: Omit<Group, 'id'> = {
@@ -109,15 +112,20 @@ export async function createGroup(
   await setDoc(groupRef, group);
 
   // 2) cria o código; a regra bloqueia (permission-denied) se o código já existir —
-  // nessa colisão raríssima, gera outro e atualiza o grupo
-  for (let attempt = 0; attempt < 5; attempt++) {
+  // nessa colisão raríssima, gera outro e atualiza o grupo. setDoc em documento
+  // existente é update, e update está negado: por isso a colisão cai no catch.
+  let savedCode = false;
+  for (let attempt = 0; attempt < 5 && !savedCode; attempt++) {
     try {
       await setDoc(doc(d, 'inviteCodes', inviteCode), { groupId: groupRef.id });
-      break;
+      savedCode = true;
     } catch {
       inviteCode = randomCode();
       await updateDoc(groupRef, { inviteCode });
     }
+  }
+  if (!savedCode) {
+    throw new Error('Não foi possível gerar um código de convite. Tente de novo.');
   }
   group.inviteCode = inviteCode;
 
@@ -142,22 +150,29 @@ export async function joinGroupByCode(user: AppUser, rawCode: string): Promise<s
     try {
       await joinAsMember(d, groupId, user);
     } catch {
-      throw new Error('Esse grupo não existe mais.');
+      throw new Error('Não foi possível entrar nesse grupo. Confira o código.');
     }
+  } else {
+    // Entrou pela metade numa tentativa anterior: o membro existe, mas a lista
+    // do usuário não. Sem esse reparo o grupo some no próximo carregamento.
+    await setDoc(doc(d, 'users', user.uid), { groupIds: arrayUnion(groupId) }, { merge: true });
   }
   return groupId;
 }
 
 async function joinAsMember(d: NonNullable<typeof db>, groupId: string, user: AppUser) {
-  const member: GroupMember = {
+  // `photo: undefined` é rejeitado pelo SDK ("Unsupported field value") e a
+  // pessoa sem foto do Google não conseguia criar nem entrar em grupo.
+  const photo = firestorePhoto(user.photo);
+  const member: Omit<GroupMember, 'photo'> & { photo?: string } = {
     uid: user.uid,
-    name: user.name,
-    photo: user.photo,
+    name: (user.name || 'Atleta').slice(0, 80),
     joinedAt: Date.now(),
     checkinsCount: 0,
     workoutsCount: 0,
     volumeKg: 0,
     countedCheckinDates: [],
+    ...(photo ? { photo } : {}),
   };
   await setDoc(doc(d, 'groups', groupId, 'members', user.uid), member);
   await setDoc(doc(d, 'users', user.uid), { groupIds: arrayUnion(groupId) }, { merge: true });
@@ -192,8 +207,28 @@ export async function sendMessage(groupId: string, user: AppUser, text: string):
   const trimmed = text.trim().slice(0, 500);
   if (!trimmed) return;
   await addDoc(collection(d, 'groups', groupId, 'messages'), {
-    uid: user.uid, name: user.name, photo: user.photo ?? null, text: trimmed, createdAt: serverTimestamp(),
+    uid: user.uid,
+    name: (user.name || 'Atleta').slice(0, 80),
+    photo: firestorePhoto(user.photo) ?? null,
+    text: trimmed,
+    createdAt: serverTimestamp(),
   });
+}
+
+export async function syncProfileToGroups(uid: string, groupIds: string[], name: string, photo?: string): Promise<void> {
+  const d = requireDb();
+  const safeName = (name || 'Atleta').slice(0, 80);
+  const safePhoto = firestorePhoto(photo);
+  await Promise.all(groupIds.map(async (groupId) => {
+    try {
+      await updateDoc(doc(d, 'groups', groupId, 'members', uid), {
+        name: safeName,
+        ...(safePhoto ? { photo: safePhoto } : {}),
+      });
+    } catch {
+      // saiu do grupo ou está offline
+    }
+  }));
 }
 
 // ---------- Sincronização automática (chamada pelo store ao registrar treino/check-in) ----------
@@ -218,15 +253,18 @@ export async function syncCheckinToGroups(
       if (!group || dateKey < group.periodStartKey || dateKey > group.periodEndKey) return;
 
       const memberRef = doc(d, 'groups', groupId, 'members', uid);
+      const photo = firestorePhoto(photoUri);
       await runTransaction(d, async (tx) => {
         const snap = await tx.get(memberRef);
+        if (!snap.exists()) return;
         const counted: string[] = snap.data()?.countedCheckinDates ?? [];
         const alreadyCounted = counted.includes(dateKey);
         tx.update(memberRef, {
-          // a foto sempre atualiza (ex.: usuário retira outra foto no mesmo dia),
-          // mas o contador só sobe uma vez por dia
+          // a foto sempre atualiza (ex.: usuário tira outra foto no mesmo dia),
+          // mas o contador só sobe uma vez por dia. Foto grande demais é omitida
+          // para o incremento não falhar junto com ela.
           ...(alreadyCounted ? {} : { checkinsCount: increment(1), countedCheckinDates: arrayUnion(dateKey) }),
-          lastCheckinPhoto: photoUri,
+          ...(photo ? { lastCheckinPhoto: photo } : {}),
           lastCheckinDate: dateKey,
         });
       });
@@ -238,7 +276,7 @@ export async function syncCheckinToGroups(
 
 export async function syncWorkoutToGroups(uid: string, groupIds: string[], volume: number, dateKey: string): Promise<void> {
   const d = requireDb();
-  const safeVolume = Math.max(0, Math.min(volume, MAX_VOLUME_PER_WORKOUT));
+  const safeVolume = Math.max(0, Math.min(Number.isFinite(volume) ? volume : 0, MAX_VOLUME_PER_WORKOUT));
   await Promise.all(groupIds.map(async (groupId) => {
     try {
       const groupSnap = await getDoc(doc(d, 'groups', groupId));

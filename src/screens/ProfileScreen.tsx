@@ -1,14 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Theme, ThemeMode, useTheme, FONT } from '../theme';
 import { Avatar, Btn, Card, FadeSlideIn, SelectPill } from '../components/UI';
 import { useStore } from '../store';
 import { hasFirebase, signOut } from '../firebase';
-
-function warn(msg: string) {
-  Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Perfil', msg);
-}
+import { photoFromAsset } from '../photos';
 
 const MODE_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'light', label: 'Claro' },
@@ -21,54 +18,44 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const s = useMemo(() => makeStyles(T), [T]);
   const { user, customPhoto, setCustomPhoto, logout } = useStore();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
-  async function fromCamera() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { warn('Precisamos da permissão da câmera pra trocar sua foto.'); return; }
-    setBusy(true);
-    try {
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true, allowsEditing: true, aspect: [1, 1] });
-      if (!result.canceled && result.assets?.[0]?.base64) {
-        setCustomPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      }
-    } catch {
-      warn('Não foi possível acessar a câmera. Tente escolher da galeria.');
-    } finally {
-      setBusy(false);
+  async function pick(source: 'camera' | 'gallery') {
+    setError('');
+    const perm = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setError(source === 'camera'
+        ? 'Precisamos da permissão da câmera pra trocar sua foto.'
+        : 'Precisamos da permissão de fotos pra trocar sua foto.');
+      return;
     }
-  }
-
-  async function fromGallery() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { warn('Precisamos da permissão de fotos pra trocar sua foto.'); return; }
     setBusy(true);
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.5, base64: true, allowsEditing: true, aspect: [1, 1] });
-      if (!result.canceled && result.assets?.[0]?.base64) {
-        setCustomPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ quality: 0.5, base64: true, allowsEditing: true, aspect: [1, 1] })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.5, base64: true, allowsEditing: true, aspect: [1, 1] });
+      if (result.canceled || !result.assets?.[0]) return;
+      const photo = await photoFromAsset(result.assets[0]);
+      if (!photo) {
+        setError('Não foi possível ler essa foto. Tente outra.');
+        return;
       }
+      setCustomPhoto(photo);
+    } catch {
+      setError(source === 'camera'
+        ? 'Não foi possível acessar a câmera. Tente escolher da galeria.'
+        : 'Não foi possível abrir a galeria.');
     } finally {
       setBusy(false);
     }
   }
 
   async function handleLogout() {
-    const msg = 'Sair da conta? Seus dados locais continuam salvos neste aparelho.';
-    if (Platform.OS === 'web') {
-      if (!window.confirm(msg)) return;
-      if (hasFirebase && !user?.demo) await signOut();
-      logout();
-      return;
-    }
-    Alert.alert('Sair da conta', msg, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair', style: 'destructive', onPress: async () => {
-          if (hasFirebase && !user?.demo) await signOut();
-          logout();
-        },
-      },
-    ]);
+    if (hasFirebase && !user?.demo) await signOut();
+    logout();
   }
 
   return (
@@ -85,11 +72,12 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           <Avatar name={user?.name ?? '?'} photo={user?.photo} size={96} />
           <Text style={s.name}>{user?.name}</Text>
           <View style={s.photoActions}>
-            <Btn label={busy ? 'Abrindo câmera…' : 'Tirar foto'} onPress={fromCamera} disabled={busy} />
-            <Btn label="Escolher da galeria" variant="ghost" onPress={fromGallery} disabled={busy} />
+            <Btn label={busy ? 'Abrindo…' : 'Tirar foto'} onPress={() => pick('camera')} disabled={busy} />
+            <Btn label="Escolher da galeria" variant="ghost" onPress={() => pick('gallery')} disabled={busy} />
             {!!customPhoto && (
               <Btn label="Remover foto" variant="ghost" onPress={() => setCustomPhoto(null)} disabled={busy} />
             )}
+            {!!error && <Text style={s.error}>{error}</Text>}
           </View>
         </Card>
       </FadeSlideIn>
@@ -106,7 +94,15 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
       </FadeSlideIn>
 
       <FadeSlideIn delay={180}>
-        <Btn label="Sair da conta" variant="ghost" onPress={handleLogout} />
+        {confirmingLogout ? (
+          <Card style={{ gap: 10 }}>
+            <Text style={s.confirmText}>Sair da conta? Seus dados locais continuam salvos neste aparelho.</Text>
+            <Btn label="Confirmar saída" onPress={handleLogout} />
+            <Btn label="Cancelar" variant="ghost" onPress={() => setConfirmingLogout(false)} />
+          </Card>
+        ) : (
+          <Btn label="Sair da conta" variant="ghost" onPress={() => setConfirmingLogout(true)} />
+        )}
       </FadeSlideIn>
     </ScrollView>
   );
@@ -122,5 +118,7 @@ function makeStyles(T: Theme) {
     photoActions: { width: '100%', gap: 10, marginTop: 4 },
     sectionTitle: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15, marginBottom: 10 },
     pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    error: { color: T.red, fontFamily: FONT.semiBold, fontSize: 13, textAlign: 'center' },
+    confirmText: { color: T.text, fontFamily: FONT.regular, fontSize: 14, lineHeight: 20 },
   });
 }

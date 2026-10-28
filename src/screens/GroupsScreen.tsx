@@ -9,9 +9,10 @@ import { useStore } from '../store';
 import { hasFirebase } from '../firebase';
 import { daysRemaining } from '../gamification';
 import {
-  Group, RuleType, RULE_LABELS, getUserGroupIds, getGroup, getMemberCount,
+  Group, GroupMessage, RuleType, RULE_LABELS, getUserGroupIds, getGroup, getMemberCount,
   createGroup, joinGroupByCode,
 } from '../groups';
+import { DEMO_GROUP_ID, demoGroup, demoMembers, demoMessageSeed } from '../demoGroup';
 import { GroupDetailScreen } from './GroupDetailScreen';
 
 const RULE_TYPES: RuleType[] = ['checkins', 'workouts', 'volume'];
@@ -35,6 +36,8 @@ export function GroupsScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [demoMessages, setDemoMessages] = useState<GroupMessage[]>(() => demoMessageSeed());
+  const example = useMemo(() => ({ group: demoGroup(), members: demoMembers() }), []);
 
   const loadGroups = useCallback(async () => {
     // Modo Demo / sem Firebase não tem grupos de verdade — evita bater no Firestore
@@ -110,6 +113,32 @@ export function GroupsScreen() {
     }
   }
 
+  if (selectedGroupId === DEMO_GROUP_ID) {
+    return (
+      <GroupDetailScreen
+        groupId={DEMO_GROUP_ID}
+        preview={{
+          group: example.group,
+          members: example.members,
+          messages: demoMessages,
+          onSend: (text) => {
+            setDemoMessages((prev) => [
+              ...prev,
+              {
+                id: `local-${Date.now()}`,
+                uid: user?.uid ?? 'demo',
+                name: user?.name ?? 'Atleta Demo',
+                text,
+                createdAt: Date.now(),
+              },
+            ]);
+          },
+        }}
+        onBack={() => setSelectedGroupId(null)}
+      />
+    );
+  }
+
   if (selectedGroupId) {
     return (
       <GroupDetailScreen
@@ -120,15 +149,32 @@ export function GroupsScreen() {
   }
 
   if (!hasFirebase || user?.demo) {
+    const exampleDays = daysRemaining(example.group.periodEndKey);
     return (
       <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={s.content}>
-        <FadeSlideIn><Text style={s.title}>Grupos</Text></FadeSlideIn>
+        <FadeSlideIn>
+          <Text style={s.title}>Grupos</Text>
+          <Text style={s.sub}>Crie ou entre num grupo e compita com amigos por check-ins, treinos ou volume.</Text>
+        </FadeSlideIn>
         <FadeSlideIn delay={80}>
+          <Pressable onPress={() => setSelectedGroupId(DEMO_GROUP_ID)}>
+            <Card style={s.groupRow}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={s.groupName}>{example.group.name}</Text>
+                <Text style={s.groupMeta}>
+                  {RULE_LABELS[example.group.ruleType]} · {example.members.length} membros · exemplo
+                </Text>
+              </View>
+              <Text style={s.groupDays}>{exampleDays > 0 ? `${exampleDays}d restantes` : 'Encerrado'}</Text>
+            </Card>
+          </Pressable>
+        </FadeSlideIn>
+        <FadeSlideIn delay={140}>
           <Card>
             <Text style={s.hint}>
               {!hasFirebase
-                ? 'Grupos precisam do Firebase configurado (src/firebase.ts).'
-                : 'Grupos exigem login com sua conta Google — o Modo Demo salva tudo só neste aparelho e não tem identidade entre dispositivos. Saia do Modo Demo e entre com sua conta Google para competir com amigos.'}
+                ? 'O grupo acima é um exemplo local. Grupos de verdade precisam do Firebase configurado (src/firebase.ts).'
+                : 'O grupo acima é um exemplo local, para ver o ranking e o chat. Para competir de verdade, saia do Modo Demo e entre com sua conta Google.'}
             </Text>
           </Card>
         </FadeSlideIn>

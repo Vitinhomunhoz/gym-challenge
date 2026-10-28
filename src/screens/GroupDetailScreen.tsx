@@ -67,7 +67,18 @@ function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPre
   );
 }
 
-export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack: () => void }) {
+export type GroupPreview = {
+  group: Group;
+  members: GroupMember[];
+  messages: GroupMessage[];
+  onSend: (text: string) => Promise<void> | void;
+};
+
+export function GroupDetailScreen({ groupId, onBack, preview }: {
+  groupId: string;
+  onBack: () => void;
+  preview?: GroupPreview;
+}) {
   const { theme: T } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
   const { user, refreshGroupIds, noteGroupLeft } = useStore();
@@ -94,6 +105,11 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
   }
 
   useEffect(() => {
+    if (preview) {
+      setGroup(preview.group);
+      setGroupMissing(false);
+      return;
+    }
     let cancelled = false;
     setGroup(null);
     setGroupMissing(false);
@@ -105,13 +121,21 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
       if (!cancelled) setGroupMissing(true);
     });
     return () => { cancelled = true; };
-  }, [groupId]);
+  }, [groupId, preview?.group]);
   useEffect(() => {
+    if (preview) {
+      setMembers(preview.members);
+      return;
+    }
     try { return subscribeMembers(groupId, setMembers); } catch { return undefined; }
-  }, [groupId]);
+  }, [groupId, preview?.members]);
   useEffect(() => {
+    if (preview) {
+      setMessages(preview.messages);
+      return;
+    }
     try { return subscribeMessages(groupId, setMessages); } catch { return undefined; }
-  }, [groupId]);
+  }, [groupId, preview?.messages]);
 
   useEffect(() => {
     if (view === 'chat') requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
@@ -149,7 +173,8 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
     setActionError('');
     setSending(true);
     try {
-      await sendMessage(groupId, user, t);
+      if (preview) await preview.onSend(t.trim());
+      else await sendMessage(groupId, user, t);
     } catch {
       setText(t);
       setActionError('Não foi possível enviar a mensagem.');
@@ -160,6 +185,10 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
 
   async function handleLeave() {
     if (!user) return;
+    if (preview) {
+      onBack();
+      return;
+    }
     setActionError('');
     try {
       await leaveGroup(user.uid, groupId);
@@ -200,6 +229,11 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
         <Text style={s.sub}>
           {RULE_LABELS[group.ruleType]} · {remaining > 0 ? `${remaining}d restantes` : 'Encerrado'}
         </Text>
+        {preview && (
+          <Text style={s.demoNote}>
+            Exemplo do Modo Demo, só neste aparelho. Com a conta Google, o ranking e o chat são entre os amigos de verdade.
+          </Text>
+        )}
         <View style={s.toggleRow}>
           <Toggle label="Ranking" active={view === 'ranking'} onPress={() => setView('ranking')} s={s} />
           <Toggle label="Chat" active={view === 'chat'} onPress={() => setView('chat')} s={s} />
@@ -287,7 +321,7 @@ export function GroupDetailScreen({ groupId, onBack }: { groupId: string; onBack
               onChangeText={setText}
               onSubmitEditing={handleSend}
             />
-            <Pressable onPress={handleSend} disabled={sending || !text.trim()} style={s.sendBtn}>
+            <Pressable onPress={handleSend} disabled={sending || !text.trim()} style={s.sendBtn} accessibilityLabel="Enviar mensagem">
               <Ionicons name="send" size={16} color="#fff" />
             </Pressable>
           </View>
@@ -318,6 +352,7 @@ function makeStyles(T: Theme) {
     },
     title: { color: T.text, fontSize: 20, fontFamily: FONT.extraBold },
     sub: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12 },
+    demoNote: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11, lineHeight: 16 },
     toggleRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
     toggle: { flex: 1, paddingVertical: 8, borderRadius: 999, backgroundColor: T.surface2, alignItems: 'center' },
     toggleActive: { backgroundColor: T.primary },

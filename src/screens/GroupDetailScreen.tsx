@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform, StyleSheet,
-  Animated, Image, Modal, ActivityIndicator, TextStyle,
+  Animated, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Theme, useTheme, FONT } from '../theme';
 import { Card, Btn, Avatar, FadeSlideIn } from '../components/UI';
+import { InviteQr } from '../components/InviteQr';
 import { useStore } from '../store';
 import { daysRemaining } from '../gamification';
+import { joinUrlForCode } from '../joinLink';
 import {
   Group, GroupMember, GroupMessage, RuleType, RULE_LABELS,
   getGroup, subscribeMembers, subscribeMessages, sendMessage, leaveGroup,
@@ -19,16 +21,51 @@ const METRIC_FIELD: Record<RuleType, keyof GroupMember> = {
   volume: 'volumeKg',
 };
 
-const MEDAL_COLORS = ['#E8B923', '#B7C0CC', '#C97A3D']; // ouro, prata, bronze
+type PlaceTone = { bg: string; ink: string; ring: string; row: string; pedestal: string };
+
+function placeTones(dark: boolean): PlaceTone[] {
+  if (dark) {
+    return [
+      { bg: '#E2B340', ink: '#2B1C00', ring: '#F0D078', row: '#3B2E12', pedestal: '#C9962A' },
+      { bg: '#E4E9F2', ink: '#243044', ring: '#F4F7FB', row: '#2A3142', pedestal: '#8E98A8' },
+      { bg: '#E0A36A', ink: '#3A1E0C', ring: '#F0C49A', row: '#3A2818', pedestal: '#A86B3C' },
+    ];
+  }
+  return [
+    { bg: '#F6C445', ink: '#5C3B00', ring: '#E3AE22', row: '#FFF8E4', pedestal: '#F0C14B' },
+    { bg: '#E7EDF5', ink: '#2C3544', ring: '#C5CEDA', row: '#F4F6FA', pedestal: '#D5DCE6' },
+    { bg: '#F0B27A', ink: '#5C3014', ring: '#D4925A', row: '#FFF1E4', pedestal: '#E39A62' },
+  ];
+}
 
 function memberScore(member: GroupMember, metricKey: keyof GroupMember): number {
   const value = member[metricKey];
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-function RankMedal({ index, style }: { index: number; style: TextStyle }) {
-  if (index < 3) return <Ionicons name="medal" size={20} color={MEDAL_COLORS[index]} />;
-  return <Text style={style}>{index + 1}</Text>;
+function PlaceMark({ index, plainColor, size = 34, tones }: {
+  index: number; plainColor: string; size?: number; tones: PlaceTone[];
+}) {
+  if (index >= 3) {
+    return <Text style={{ color: plainColor, fontFamily: FONT.extraBold, fontSize: 15, textAlign: 'center' }}>{index + 1}</Text>;
+  }
+  const tone = tones[index];
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: tone.bg, borderWidth: 2, borderColor: tone.ring,
+      alignItems: 'center', justifyContent: 'center',
+    }}>
+      <Text style={{ color: tone.ink, fontFamily: FONT.black, fontSize: size * 0.46, lineHeight: size * 0.52 }}>{index + 1}</Text>
+    </View>
+  );
+}
+
+function MemberFace({ member, size }: { member: GroupMember; size: number }) {
+  if (member.lastCheckinPhoto) {
+    return <Image source={{ uri: member.lastCheckinPhoto }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+  }
+  return <Avatar name={member.name} size={size} photo={member.photo} />;
 }
 
 function formatDateLabel(dateKey: string): string {
@@ -43,17 +80,20 @@ function Toggle({ label, active, onPress, s }: { label: string; active: boolean;
   );
 }
 
-function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPressPhoto, T, s }: {
+function RankRow({ member, index, metricKey, unit, isMe, delta, flashAnim, onPressPhoto, T, s, tones }: {
   member: GroupMember; index: number; metricKey: keyof GroupMember; unit: string;
   isMe: boolean; delta: number; flashAnim: Animated.Value; onPressPhoto: () => void; T: Theme; s: Styles;
+  tones: PlaceTone[];
 }) {
+  const tone = index < 3 ? tones[index] : null;
+  const resting = tone ? tone.row : (isMe ? T.primarySoft : T.surface);
   const bg = flashAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [isMe ? T.primarySoft : T.surface, T.goldSoft],
+    outputRange: [resting, T.goldSoft],
   });
   return (
-    <Animated.View style={[s.rankRow, { backgroundColor: bg }]}>
-      <View style={s.rankNum}><RankMedal index={index} style={s.rankNumText} /></View>
+    <Animated.View style={[s.rankRow, { backgroundColor: bg }, tone && { borderLeftWidth: 4, borderLeftColor: tone.bg }]}>
+      <View style={s.rankNum}><PlaceMark index={index} plainColor={T.textDim} tones={tones} /></View>
       <Pressable onPress={onPressPhoto} disabled={!member.lastCheckinPhoto}>
         {member.lastCheckinPhoto
           ? <Image source={{ uri: member.lastCheckinPhoto }} style={s.rankPhoto} />
@@ -79,8 +119,9 @@ export function GroupDetailScreen({ groupId, onBack, preview }: {
   onBack: () => void;
   preview?: GroupPreview;
 }) {
-  const { theme: T } = useTheme();
+  const { theme: T, scheme } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
+  const tones = useMemo(() => placeTones(scheme === 'dark'), [scheme]);
   const { user, refreshGroupIds, noteGroupLeft } = useStore();
   const [group, setGroup] = useState<Group | null>(null);
   const [groupMissing, setGroupMissing] = useState(false);
@@ -93,6 +134,7 @@ export function GroupDetailScreen({ groupId, onBack, preview }: {
   const [viewPhoto, setViewPhoto] = useState<{ uri: string; name: string; date?: string } | null>(null);
   const [actionError, setActionError] = useState('');
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [copyLabel, setCopyLabel] = useState('Copiar link');
   const scrollRef = useRef<ScrollView>(null);
 
   const flashAnims = useRef<Record<string, Animated.Value>>({});
@@ -220,6 +262,39 @@ export function GroupDetailScreen({ groupId, onBack, preview }: {
   const ranked = [...members].sort((a, b) => memberScore(b, metricKey) - memberScore(a, metricKey));
   const myIndex = ranked.findIndex((m) => m.uid === user?.uid);
   const remaining = daysRemaining(group.periodEndKey);
+  const inviteLink = joinUrlForCode(group.inviteCode);
+  const showQr = !preview;
+  const podiumOrder = ranked.length >= 3 ? [1, 0, 2] : ranked.length === 2 ? [1, 0] : ranked.length === 1 ? [0] : [];
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    const mark = (label: string) => {
+      setCopyLabel(label);
+      setTimeout(() => setCopyLabel('Copiar link'), 2000);
+    };
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+        mark('Link copiado');
+        return;
+      }
+    } catch { /* alguns navegadores bloqueiam a área de transferência */ }
+    try {
+      if (typeof document === 'undefined') throw new Error('sem documento');
+      const area = document.createElement('textarea');
+      area.value = inviteLink;
+      area.setAttribute('readonly', 'true');
+      area.style.position = 'fixed';
+      area.style.left = '-9999px';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      mark(ok ? 'Link copiado' : 'Selecione o link acima');
+    } catch {
+      mark('Selecione o link acima');
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -243,16 +318,59 @@ export function GroupDetailScreen({ groupId, onBack, preview }: {
       {view === 'ranking' ? (
         <ScrollView contentContainerStyle={s.content}>
           <FadeSlideIn>
-            <Card>
-              <Text style={s.inviteLabel}>Código do grupo — compartilhe pra convidar</Text>
+            <Card style={s.inviteCard}>
+              <Text style={s.inviteLabel}>
+                {preview ? 'Código do grupo — compartilhe pra convidar' : 'Convite da banca'}
+              </Text>
+              {showQr && (
+                <>
+                  <InviteQr value={inviteLink} />
+                  <Text style={s.inviteHint}>
+                    Mostre este QR na banca. Quem escanear com a câmera do celular abre o app e entra no grupo com a conta Google.
+                  </Text>
+                  <Text style={s.inviteUrl} selectable>{inviteLink}</Text>
+                  <Pressable onPress={copyInviteLink} style={s.copyBtn}>
+                    <Text style={s.copyBtnText}>{copyLabel}</Text>
+                  </Pressable>
+                </>
+              )}
               <Text style={s.inviteCode}>{group.inviteCode}</Text>
             </Card>
           </FadeSlideIn>
 
-          {myIndex >= 0 && (
+          {podiumOrder.length > 0 && (
             <FadeSlideIn delay={40}>
+              <Card style={s.podiumCard}>
+                <Text style={s.podiumTitle}>Pódio</Text>
+                <View style={s.podiumRow}>
+                  {podiumOrder.map((place) => {
+                    const member = ranked[place];
+                    const tone = tones[place];
+                    const height = place === 0 ? 92 : place === 1 ? 68 : 54;
+                    return (
+                      <View key={member.uid} style={s.podiumSlot}>
+                        <MemberFace member={member} size={place === 0 ? 52 : 42} />
+                        <Text style={s.podiumName} numberOfLines={1}>{member.name}</Text>
+                        <Text style={s.podiumScore}>
+                          {memberScore(member, metricKey).toLocaleString('pt-BR')}{unit}
+                        </Text>
+                        <View style={[s.pedestal, { height, backgroundColor: tone.pedestal }]}>
+                          <Text style={[s.pedestalPlace, { color: tone.ink }]}>{place + 1}º</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </Card>
+            </FadeSlideIn>
+          )}
+
+          {myIndex >= 0 && (
+            <FadeSlideIn delay={70}>
               <Card style={s.heroCard}>
-                <View style={s.heroMedal}><RankMedal index={myIndex} style={s.heroMedalText} /></View>
+                <View style={s.heroMedal}>
+                  <PlaceMark index={myIndex} plainColor="#fff" size={36} tones={tones} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.heroLabel}>Sua posição</Text>
                   <Text style={s.heroRank}>{myIndex + 1}º de {ranked.length}</Text>
@@ -279,6 +397,7 @@ export function GroupDetailScreen({ groupId, onBack, preview }: {
                 })}
                 T={T}
                 s={s}
+                tones={tones}
               />
             </FadeSlideIn>
           ))}
@@ -359,14 +478,26 @@ function makeStyles(T: Theme) {
     toggleText: { color: T.textDim, fontFamily: FONT.bold, fontSize: 13 },
     toggleTextActive: { color: '#fff' },
     content: { padding: 16, gap: 10, paddingBottom: 32, maxWidth: 560, width: '100%', alignSelf: 'center' },
-    inviteLabel: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11, marginBottom: 4 },
+    inviteCard: { alignItems: 'center', gap: 10 },
+    inviteLabel: { color: T.textDim, fontFamily: FONT.regular, fontSize: 11, alignSelf: 'flex-start' },
+    inviteHint: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+    inviteUrl: { color: T.text, fontFamily: FONT.semiBold, fontSize: 11, textAlign: 'center' },
+    copyBtn: { backgroundColor: T.primarySoft, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+    copyBtnText: { color: T.primary, fontFamily: FONT.extraBold, fontSize: 13 },
     inviteCode: { color: T.primary, fontSize: 20, fontFamily: FONT.extraBold, letterSpacing: 4 },
+    podiumCard: { gap: 12 },
+    podiumTitle: { color: T.text, fontFamily: FONT.extraBold, fontSize: 15 },
+    podiumRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    podiumSlot: { flex: 1, alignItems: 'center', gap: 6 },
+    podiumName: { color: T.text, fontFamily: FONT.bold, fontSize: 12, textAlign: 'center', width: '100%' },
+    podiumScore: { color: T.textDim, fontFamily: FONT.semiBold, fontSize: 11 },
+    pedestal: { width: '100%', borderTopLeftRadius: 14, borderTopRightRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    pedestalPlace: { fontFamily: FONT.black, fontSize: 22 },
     heroCard: {
       flexDirection: 'row', alignItems: 'center', gap: 12,
       backgroundColor: T.primary, shadowColor: T.primary, shadowOpacity: 0.3,
     },
-    heroMedal: { width: 32, alignItems: 'center', justifyContent: 'center' },
-    heroMedalText: { color: '#fff', fontFamily: FONT.extraBold, fontSize: 20, textAlign: 'center' },
+    heroMedal: { width: 40, alignItems: 'center', justifyContent: 'center' },
     heroLabel: { color: '#FFFFFFB0', fontSize: 11, fontFamily: FONT.bold },
     heroRank: { color: '#fff', fontSize: 18, fontFamily: FONT.extraBold },
     heroValue: { color: '#fff', fontSize: 20, fontFamily: FONT.extraBold },
@@ -375,8 +506,7 @@ function makeStyles(T: Theme) {
       borderRadius: T.radius,
       shadowColor: T.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 2,
     },
-    rankNum: { width: 26, alignItems: 'center', justifyContent: 'center' },
-    rankNumText: { color: T.textDim, fontFamily: FONT.extraBold, fontSize: 15, textAlign: 'center' },
+    rankNum: { width: 40, alignItems: 'center', justifyContent: 'center' },
     rankPhoto: { width: 36, height: 36, borderRadius: 18, backgroundColor: T.surface2 },
     rankName: { flex: 1, color: T.text, fontFamily: FONT.bold, fontSize: 14 },
     rankValue: { color: T.text, fontFamily: FONT.extraBold, fontSize: 14 },

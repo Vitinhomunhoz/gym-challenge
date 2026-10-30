@@ -37,9 +37,20 @@ No iPhone físico a Apple não deixa instalar essa versão antiga do Expo Go. A�
 | Desafios | Dois desafios do dia, os mesmos para todo mundo naquela data. O bônus de XP é resgatado uma vez. |
 | Check-in | Foto pela câmera ou pela galeria, como declaração de que treinou hoje. Não confere o local nem a data da foto. |
 | Histórico | Calendário mês a mês (até o mês atual), recordes de carga e os treinos daquele dia. |
-| Grupos | Criar ou entrar com um código. Dentro: ranking do período (7, 14 ou 30 dias) e chat. No Modo Demo, o grupo **Galera da Academia** é um exemplo só deste aparelho. |
+| Grupos | Criar ou entrar com um código. Dentro: pódio, ranking do período (7, 14 ou 30 dias) e chat. No grupo de verdade, um QR abre o convite no celular. No Modo Demo, o grupo **Galera da Academia** é um exemplo só deste aparelho. |
 
 Sair da conta limpa a sessão na memória. O diário continua no aparelho e volta no próximo acesso da mesma conta (ou do demo).
+
+## Na banca, entrar pelo QR
+
+No grupo criado com a conta Google, a tela do ranking mostra um QR. O link é `https://gym-chalenge.web.app/?entrar=CODIGO` (também aceita `?join=`).
+
+1. Crie o grupo na aula e deixe o QR no projetor.
+2. O avaliador escaneia com a câmera do celular.
+3. O site abre. Se ainda não houver sessão, a tela de login avisa o código. Entrar com Google guarda o convite na sessão do navegador (o redirect do Google recarrega a página) e o app entra no grupo sozinho.
+4. Check-in e chat passam a aparecer no ranking ao vivo.
+
+O Modo Demo não entra nesse grupo: o ranking compartilhado precisa da conta Google.
 
 ## Regras de jogo
 

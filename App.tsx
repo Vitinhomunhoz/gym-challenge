@@ -8,6 +8,7 @@ import {
 import { Theme, ThemeProvider, useTheme, FONT } from './src/theme';
 import { StoreProvider, useStore } from './src/store';
 import { watchAuth, consumeRedirectError } from './src/firebase';
+import { captureJoinFromLocation } from './src/joinLink';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -30,13 +31,14 @@ function Main() {
   const { theme: T, scheme } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
   const { user, setUser, ready } = useStore();
-  const [tab, setTab] = useState<Tab>('home');
+  const [pendingJoin] = useState(() => captureJoinFromLocation());
+  const [tab, setTab] = useState<Tab>(pendingJoin ? 'grupos' : 'home');
   const [loginError, setLoginError] = useState('');
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const toastSeq = useRef(0);
   const [visited, setVisited] = useState<Record<Tab, boolean>>({
-    home: true, treino: false, checkin: false, desafios: false, grupos: false, historico: false,
+    home: true, treino: false, checkin: false, desafios: false, grupos: !!pendingJoin, historico: false,
   });
   const toastAnim = useRef(new Animated.Value(0)).current;
   const tabAnims = useRef<Record<Tab, Animated.Value>>({

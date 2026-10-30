@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Theme, useTheme, FONT } from '../theme';
 import { Btn, FadeSlideIn } from '../components/UI';
 import { hasFirebase, signInWithGoogle } from '../firebase';
+import { readPendingJoin } from '../joinLink';
 import { useStore } from '../store';
 
 export function LoginScreen({ externalError }: { externalError?: string }) {
@@ -13,6 +14,7 @@ export function LoginScreen({ externalError }: { externalError?: string }) {
   const { setUser } = useStore();
   const [error, setError] = useState('');
   const [redirecting, setRedirecting] = useState(false);
+  const pendingCode = useMemo(() => readPendingJoin(), []);
   const shownError = error || externalError;
 
   async function handleGoogle() {
@@ -39,6 +41,15 @@ export function LoginScreen({ externalError }: { externalError?: string }) {
           <Text style={s.subtitle}>Sua evolução vira jogo. Treine, complete{'\n'}desafios e suba de nível.</Text>
         </LinearGradient>
       </FadeSlideIn>
+
+      {!!pendingCode && (
+        <FadeSlideIn delay={80} style={s.joinBanner}>
+          <Text style={s.joinTitle}>Convite do grupo {pendingCode}</Text>
+          <Text style={s.joinText}>
+            Entre com Google para participar do ranking ao vivo. O Modo Demo fica só neste aparelho.
+          </Text>
+        </FadeSlideIn>
+      )}
 
       <FadeSlideIn delay={160} style={s.actions}>
         <Btn label={redirecting ? 'Abrindo login do Google…' : 'Entrar com Google'} onPress={handleGoogle} disabled={!hasFirebase || redirecting} />
@@ -69,6 +80,12 @@ function makeStyles(T: Theme) {
     },
     title: { color: '#fff', fontSize: 26, fontFamily: FONT.black, textAlign: 'center', letterSpacing: 1 },
     subtitle: { color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: 12, lineHeight: 20, fontSize: 13, fontFamily: FONT.regular },
+    joinBanner: {
+      width: '100%', maxWidth: 340, marginTop: 20, backgroundColor: T.goldSoft,
+      borderRadius: 16, padding: 14, gap: 4,
+    },
+    joinTitle: { color: T.goldText, fontFamily: FONT.extraBold, fontSize: 14 },
+    joinText: { color: T.text, fontFamily: FONT.regular, fontSize: 12, lineHeight: 18 },
     actions: { width: '100%', maxWidth: 340, gap: 12, marginTop: 32 },
     hint: { color: T.textDim, fontFamily: FONT.regular, fontSize: 12, textAlign: 'center', marginTop: 20, lineHeight: 18, maxWidth: 320 },
   });

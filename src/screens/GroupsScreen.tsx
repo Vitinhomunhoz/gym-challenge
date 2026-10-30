@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TextInput, Pressable, StyleSheet,
   ActivityIndicator, RefreshControl,
@@ -13,6 +13,7 @@ import {
   createGroup, joinGroupByCode,
 } from '../groups';
 import { DEMO_GROUP_ID, demoGroup, demoMembers, demoMessageSeed } from '../demoGroup';
+import { clearPendingJoin, readPendingJoin } from '../joinLink';
 import { GroupDetailScreen } from './GroupDetailScreen';
 
 const RULE_TYPES: RuleType[] = ['checkins', 'workouts', 'volume'];
@@ -36,6 +37,9 @@ export function GroupsScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [joiningFromLink, setJoiningFromLink] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string | null>(() => readPendingJoin());
+  const autoJoinStarted = useRef(false);
   const [demoMessages, setDemoMessages] = useState<GroupMessage[]>(() => demoMessageSeed());
   const example = useMemo(() => ({ group: demoGroup(), members: demoMembers() }), []);
 
@@ -60,6 +64,30 @@ export function GroupsScreen() {
       throw new Error('Não foi possível carregar seus grupos.');
     }
   }, [user?.uid, user?.demo]);
+
+  useEffect(() => {
+    if (!user || user.demo || !hasFirebase) return;
+    const pending = readPendingJoin();
+    if (!pending || autoJoinStarted.current) return;
+    autoJoinStarted.current = true;
+    setJoiningFromLink(true);
+    setFormError('');
+    joinGroupByCode(user, pending)
+      .then(async (groupId) => {
+        clearPendingJoin();
+        setPendingCode(null);
+        noteGroupJoined(groupId);
+        await refreshGroupIds().catch(() => {});
+        await loadGroups().catch(() => {});
+        setSelectedGroupId(groupId);
+      })
+      .catch((e) => {
+        clearPendingJoin();
+        setPendingCode(null);
+        setFormError(e?.message ?? 'Não foi possível entrar no grupo pelo QR.');
+      })
+      .finally(() => setJoiningFromLink(false));
+  }, [user, loadGroups, noteGroupJoined, refreshGroupIds]);
 
   useEffect(() => {
     setLoading(true);
@@ -169,6 +197,15 @@ export function GroupsScreen() {
             </Card>
           </Pressable>
         </FadeSlideIn>
+        {!!pendingCode && (
+          <FadeSlideIn delay={110}>
+            <Card>
+              <Text style={s.hint}>
+                O QR convida para o grupo {pendingCode}. Saia do Modo Demo e entre com Google para participar do ranking ao vivo.
+              </Text>
+            </Card>
+          </FadeSlideIn>
+        )}
         <FadeSlideIn delay={140}>
           <Card>
             <Text style={s.hint}>
@@ -194,8 +231,11 @@ export function GroupsScreen() {
         {!!formError && !showCreate && !showJoin && <Text style={s.error}>{formError}</Text>}
       </FadeSlideIn>
 
-      {loading && (
-        <View style={s.loadingBox}><ActivityIndicator color={T.primary} /></View>
+      {(loading || joiningFromLink) && (
+        <View style={s.loadingBox}>
+          <ActivityIndicator color={T.primary} />
+          {joiningFromLink && <Text style={s.hint}>Entrando no grupo…</Text>}
+        </View>
       )}
 
       {!loading && groups.length === 0 && (

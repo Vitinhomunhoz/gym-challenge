@@ -15,8 +15,10 @@ export function DashboardScreen() {
 
   const currentBase = xpForLevel(level);
   const nextTarget = xpForLevel(level + 1);
-  const pct = (xp - currentBase) / (nextTarget - currentBase);
-  const totalVolume = workouts.reduce((a, w) => a + w.volume, 0);
+  const span = nextTarget - currentBase;
+  const pct = span > 0 ? Math.min(1, Math.max(0, (xp - currentBase) / span)) : 0;
+  const totalVolume = workouts.reduce((a, w) => a + (Number.isFinite(w.volume) ? w.volume : 0), 0);
+  const firstName = (user?.name ?? '').trim().split(/\s+/)[0] || 'Atleta';
   const unlocked = badges.filter((b) => b.unlocked);
   const challengesDone = todaysChallenges.filter(
     (c) => claimedChallenges.includes(c.id) || c.progress(todaysWorkouts) >= c.target
@@ -27,12 +29,18 @@ export function DashboardScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: T.bg }} contentContainerStyle={s.content}>
       <FadeSlideIn>
-        <Pressable style={s.greetingRow} onPress={() => setShowProfile(true)}>
+        <Pressable
+          style={s.greetingRow}
+          onPress={() => setShowProfile(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir perfil"
+        >
           <Avatar name={user?.name ?? '?'} photo={user?.photo} />
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={s.greetingHi}>Olá,</Text>
-            <Text style={s.greeting}>{user?.name.split(' ')[0]}</Text>
+            <Text style={s.greeting}>{firstName}</Text>
           </View>
+          <Ionicons name="chevron-forward" size={18} color={T.textDim} />
         </Pressable>
       </FadeSlideIn>
 

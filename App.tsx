@@ -8,7 +8,7 @@ import {
 import { Theme, ThemeProvider, useTheme, FONT } from './src/theme';
 import { StoreProvider, useStore } from './src/store';
 import { watchAuth, consumeRedirectError } from './src/firebase';
-import { FadeSlideIn } from './src/components/UI';
+import { captureJoinFromLocation } from './src/joinLink';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -30,11 +30,16 @@ const TABS: { key: Tab; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof 
 function Main() {
   const { theme: T, scheme } = useTheme();
   const s = useMemo(() => makeStyles(T), [T]);
-  const { user, setUser } = useStore();
-  const [tab, setTab] = useState<Tab>('home');
+  const { user, setUser, ready } = useStore();
+  const [pendingJoin] = useState(() => captureJoinFromLocation());
+  const [tab, setTab] = useState<Tab>(pendingJoin ? 'grupos' : 'home');
   const [loginError, setLoginError] = useState('');
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
+  const toastSeq = useRef(0);
+  const [visited, setVisited] = useState<Record<Tab, boolean>>({
+    home: true, treino: false, checkin: false, desafios: false, grupos: !!pendingJoin, historico: false,
+  });
   const toastAnim = useRef(new Animated.Value(0)).current;
   const tabAnims = useRef<Record<Tab, Animated.Value>>({
     home: new Animated.Value(1), treino: new Animated.Value(0), checkin: new Animated.Value(0),
@@ -45,7 +50,11 @@ function Main() {
   // cair (token expirado, logout em outra aba), a tela precisa voltar pro login em
   // vez de continuar "presa" mostrando um usuário sem sessão real por trás (o que só
   // aparece depois, como "Missing or insufficient permissions" numa escrita).
-  useEffect(() => watchAuth((u) => setUser(u)), []);
+  // null vindo do Firebase (ainda sem sessão, ou token ainda não restaurado) não pode
+  // derrubar quem acabou de entrar no Modo Demo.
+  useEffect(() => watchAuth((u) => {
+    setUser((curr) => (curr?.demo && !u ? curr : u));
+  }), [setUser]);
 
   // Login com Google usa redirect (mais confiável no Safari/mobile que popup) — ao
   // voltar do Google, o app recarrega e aqui a gente pega se deu erro (ex: usuário
@@ -55,6 +64,10 @@ function Main() {
   useEffect(() => {
     consumeRedirectError().then((err) => { if (err) setLoginError(err); });
   }, []);
+
+  useEffect(() => {
+    setVisited((v) => (v[tab] ? v : { ...v, [tab]: true }));
+  }, [tab]);
 
   useEffect(() => {
     TABS.forEach((t) => {
@@ -69,14 +82,15 @@ function Main() {
   useEffect(() => {
     if (!toast) return;
     setToastVisible(true);
+    toastAnim.setValue(0);
     Animated.spring(toastAnim, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }).start();
     const t = setTimeout(() => {
       Animated.timing(toastAnim, {
         toValue: 0, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true,
-      }).start(() => { setToastVisible(false); setToast(''); });
+      }).start(() => { setToastVisible(false); setToast(null); });
     }, 2200);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toast?.id]);
 
   if (!user) {
     return (
@@ -87,20 +101,41 @@ function Main() {
     );
   }
 
+  if (!ready) {
+    return (
+      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <ActivityIndicator color={T.primary} />
+      </View>
+    );
+  }
+
+  const showToast = (text: string) => setToast({ id: ++toastSeq.current, text });
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: T.bg }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <View style={{ flex: 1 }}>
-        <FadeSlideIn key={tab} style={{ flex: 1 }} duration={260}>
-          {tab === 'home' && <DashboardScreen />}
-          {tab === 'treino' && (
-            <WorkoutScreen onSaved={(xp) => { setToast(`Treino salvo! +${xp} XP`); setTab('home'); }} />
-          )}
-          {tab === 'checkin' && <CheckinScreen />}
-          {tab === 'desafios' && <ChallengesScreen />}
-          {tab === 'grupos' && <GroupsScreen />}
-          {tab === 'historico' && <HistoryScreen />}
-        </FadeSlideIn>
+        {visited.home && (
+          <View style={[s.screen, tab !== 'home' && s.hidden]}><DashboardScreen /></View>
+        )}
+        {visited.treino && (
+          <View style={[s.screen, tab !== 'treino' && s.hidden]}>
+            <WorkoutScreen onSaved={(xp) => { showToast(`Treino salvo! +${xp} XP`); setTab('home'); }} />
+          </View>
+        )}
+        {visited.checkin && (
+          <View style={[s.screen, tab !== 'checkin' && s.hidden]}><CheckinScreen /></View>
+        )}
+        {visited.desafios && (
+          <View style={[s.screen, tab !== 'desafios' && s.hidden]}><ChallengesScreen /></View>
+        )}
+        {visited.grupos && (
+          <View style={[s.screen, tab !== 'grupos' && s.hidden]}><GroupsScreen /></View>
+        )}
+        {visited.historico && (
+          <View style={[s.screen, tab !== 'historico' && s.hidden]}><HistoryScreen /></View>
+        )}
       </View>
 
       {toastVisible && (
@@ -116,7 +151,7 @@ function Main() {
             },
           ]}
         >
-          <Text style={s.toastText}>{toast}</Text>
+          <Text style={s.toastText}>{toast?.text}</Text>
         </Animated.View>
       )}
 
@@ -168,6 +203,18 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+  // No celular, o <input> do navegador não encolhe abaixo da largura padrão
+  // (~20 caracteres). A série (reps + carga) passava da borda da tela.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const id = 'gym-mobile-input-fix';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = 'input, textarea { min-width: 0 !important; max-width: 100%; font-size: 16px; }';
+    document.head.appendChild(style);
+  }, []);
+
   // Sem tela de loading própria (T.bg) aqui: o ThemeProvider ainda não montou nesse
   // ponto, então usa só a cor de fundo clara padrão até a fonte carregar (é rápido).
   if (!fontsLoaded && !fontError && !timedOut) {
@@ -189,6 +236,8 @@ export default function App() {
 
 function makeStyles(T: Theme) {
   return StyleSheet.create({
+    screen: { flex: 1 },
+    hidden: { display: 'none' },
     tabBar: {
       flexDirection: 'row', backgroundColor: T.surface,
       paddingVertical: 8, paddingBottom: 14, maxWidth: 560, width: '100%', alignSelf: 'center',
@@ -196,8 +245,8 @@ function makeStyles(T: Theme) {
       shadowColor: T.shadow, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 8,
     },
     tab: { flex: 1, alignItems: 'center', gap: 3 },
-    tabPill: { paddingHorizontal: 16, paddingVertical: 5, borderRadius: 999 },
-    tabLabel: { color: T.textDim, fontSize: 11, fontFamily: FONT.regular },
+    tabPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    tabLabel: { color: T.textDim, fontSize: 10, fontFamily: FONT.regular },
     toast: {
       position: 'absolute', bottom: 90, alignSelf: 'center', backgroundColor: T.gold,
       paddingVertical: 12, paddingHorizontal: 22, borderRadius: 999,
